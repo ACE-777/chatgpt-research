@@ -4,6 +4,7 @@ import argparse
 import json
 
 from scripts.model_of_GPT import build_page_template
+from transformers import RobertaTokenizer  # type: ignore
 
 from src import SourceMapping, Config, Embeddings, Index,Roberta
 from typing import Dict, List, Optional
@@ -46,10 +47,15 @@ def build_dict_for_color(links: list[str], uniq_color: int) -> Dict[str, str]:
 
 
 def prob_test_wiki_with_colored(index: Index, text: str, expected_url: str,
-                                uniq_color: int) -> tuple[list[int], list[int]]:
+                                uniq_color: int) -> tuple[list[int], list[int], str]:
     embeddings = Embeddings(tokenizer, model, normalize=True).from_text(text)
+    # tokens = build_list_of_tokens_input(text)
 
+    # may end
+    print("embeddings:", embeddings)
     result_sources, result_dists = index.get_embeddings_source(embeddings)
+    print("result_sources:", result_sources)
+    print("result_dists",result_dists)
     expected_count: int = 0
     dist_sum: float = 0.0
 
@@ -73,15 +79,23 @@ def prob_test_wiki_with_colored(index: Index, text: str, expected_url: str,
 
     dict_with_uniq_colors = build_dict_for_color(links, uniq_color)
 
+
     return build_page_template(text, links, dict_with_uniq_colors)
 
 
-def main(user_input: str) -> tuple[list[int], list[int]]:
+def build_list_of_tokens_input(text: str) -> list[str]:
+    tokenizer = RobertaTokenizer.from_pretrained(Config.model_name)
+    tokens = tokenizer.tokenize(text)
+
+    return tokens
+
+def main(user_input: str) -> tuple[list[int], list[int], str]:
     read_index: bool = True
 
     if read_index:
         # print("Readings index... ", end='')
         index = Index.load(Config.index_file, Config.mapping_file)
+        print("index:", index)
         # print("Done")
     else:
         print("Index is being built from wiki... ")
@@ -104,14 +118,15 @@ if __name__ == "__main__":
     file = args.file
     question = args.question
     answer = args.answer
-    sentence_length_array, count_colored_token_in_sentence_array = main(userinput)
+    sentence_length_array, count_colored_token_in_sentence_array, html = main(userinput)
 
     dictionary = {
         'file': file,
         'question': question,
         'answer': answer,
         'length': sentence_length_array,
-        'colored': count_colored_token_in_sentence_array
+        'colored': count_colored_token_in_sentence_array,
+        'html': html
     }
 
     json_output = json.dumps(dictionary, indent=4)

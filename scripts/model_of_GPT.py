@@ -108,16 +108,17 @@ def build_link_template(tokens: Iterable[str], source_link: list[str], dict_with
 
 
 def build_page_template(completion: str, source_links: list[str], dict_with_uniq_colors: Dict[str, str]) -> \
-        tuple[ list[int],  list[int]]:
-    # template = Template(page_template)
+        tuple[ list[int],  list[int], str]:
+    template = Template(page_template)
     tokens_from_output = build_list_of_tokens_input(completion)  # can integrate chatgpt response
-    result_of_color, sentence_length_array, count_colored_token_in_sentence_array  = build_link_template(tokens_from_output, source_links, dict_with_uniq_colors)
-    # result_of_list_of_colors = list_of_colors(dict_with_uniq_colors)
-    # result_html = template.render(result=result_of_color, gpt_response=completion,
-    #                               list_of_colors=result_of_list_of_colors)
+    result_of_color, sentence_length_array, count_colored_token_in_sentence_array = \
+        build_link_template(tokens_from_output, source_links, dict_with_uniq_colors)
+    result_of_list_of_colors = list_of_colors(dict_with_uniq_colors)
+    result_html = template.render(result=result_of_color, gpt_response=completion,
+                                  list_of_colors=result_of_list_of_colors)
     # with open("./server/templates/template_of_result_page.html", "w", encoding="utf-8") as f:
     #     f.write(result_html)
-    return sentence_length_array, count_colored_token_in_sentence_array
+    return sentence_length_array, count_colored_token_in_sentence_array, result_html
 
 
 if __name__ == "__main__":
