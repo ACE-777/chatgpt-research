@@ -251,6 +251,7 @@ def main(gpt_response) -> None:
 
 
 if __name__ == "__main__":
+
     main(
         "Presley's father Vernon was of German, Scottish, and English origins, and a descendant of the Harrison family "
         "of Virginia through his mother, Minnie Mae Presley (née Hood). Presley's mother Gladys was Scots-Irish with "
