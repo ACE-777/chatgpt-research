@@ -3,13 +3,12 @@ import collections
 import argparse
 import json
 
+
 from scripts.model_of_GPT import build_page_template
 from transformers import RobertaTokenizer  # type: ignore
 
 from src import SourceMapping, Config, Embeddings, Index,Roberta
-from typing import Dict, List, Optional
-
-
+from typing import Dict, List, Optional, Tuple, Any
 
 tokenizer, model = Roberta.get_default()
 
@@ -47,40 +46,37 @@ def build_dict_for_color(links: list[str], uniq_color: int) -> Dict[str, str]:
 
 
 def prob_test_wiki_with_colored(index: Index, text: str, expected_url: str,
-                                uniq_color: int) -> tuple[list[int], list[int], str]:
+                                uniq_color: int) -> tuple[Any, list[str], Any]:
     embeddings = Embeddings(tokenizer, model, normalize=True).from_text(text)
-    # tokens = build_list_of_tokens_input(text)
-
+    tokens = build_list_of_tokens_input(text)
     # may end
-    print("embeddings:", embeddings)
     result_sources, result_dists = index.get_embeddings_source(embeddings)
-    print("result_sources:", result_sources)
-    print("result_dists",result_dists)
-    expected_count: int = 0
-    dist_sum: float = 0.0
-
-    links: List[Optional[str]] = []
-
-    for i, (dist, source) in enumerate(zip(result_dists, result_sources)):
-
-        if dist < Config.threshold:
-            links.append(None)
-        else:
-            links.append(source)
-
-        if source == expected_url:
-            expected_count += 1
-            dist_sum += dist
-
-    # print(
-    #     f"Got expected URL in {expected_count / len(result_dists) * 100:.4f}% of cases, "
-    #     f"average match distance: {dist_sum / len(result_dists):.4f}"
-    # )
-
-    dict_with_uniq_colors = build_dict_for_color(links, uniq_color)
-
-
-    return build_page_template(text, links, dict_with_uniq_colors)
+    return result_sources, tokens, result_dists
+    # expected_count: int = 0
+    # dist_sum: float = 0.0
+    #
+    # links: List[Optional[str]] = []
+    #
+    # for i, (dist, source) in enumerate(zip(result_dists, result_sources)):
+    #
+    #     if dist < Config.threshold:
+    #         links.append(None)
+    #     else:
+    #         links.append(source)
+    #
+    #     if source == expected_url:
+    #         expected_count += 1
+    #         dist_sum += dist
+    #
+    # # print(
+    # #     f"Got expected URL in {expected_count / len(result_dists) * 100:.4f}% of cases, "
+    # #     f"average match distance: {dist_sum / len(result_dists):.4f}"
+    # # )
+    #
+    # dict_with_uniq_colors = build_dict_for_color(links, uniq_color)
+    #
+    #
+    # return build_page_template(text, links, dict_with_uniq_colors)
 
 
 def build_list_of_tokens_input(text: str) -> list[str]:
@@ -89,13 +85,12 @@ def build_list_of_tokens_input(text: str) -> list[str]:
 
     return tokens
 
-def main(user_input: str) -> tuple[list[int], list[int], str]:
+def main(user_input: str) -> tuple[Any, list[str], Any]:
     read_index: bool = True
 
     if read_index:
         # print("Readings index... ", end='')
         index = Index.load(Config.index_file, Config.mapping_file)
-        print("index:", index)
         # print("Done")
     else:
         print("Index is being built from wiki... ")
@@ -118,15 +113,28 @@ if __name__ == "__main__":
     file = args.file
     question = args.question
     answer = args.answer
-    sentence_length_array, count_colored_token_in_sentence_array, html = main(userinput)
+    result_sources, tokens, result_dists = main(userinput)
+    # sentence_length_array, count_colored_token_in_sentence_array, html = main(userinput)
+
+    # dictionary = {
+    #     'file': file,
+    #     'question': question,
+    #     'answer': answer,
+    #     'length': sentence_length_array,
+    #     'colored': count_colored_token_in_sentence_array,
+    #     'html': html
+    # }
+
+    float_list = result_dists.tolist()
+    str_list = result_sources.tolist()
 
     dictionary = {
         'file': file,
         'question': question,
         'answer': answer,
-        'length': sentence_length_array,
-        'colored': count_colored_token_in_sentence_array,
-        'html': html
+        'result_sources': str_list,
+        'tokens': tokens,
+        'result_dists': float_list,
     }
 
     json_output = json.dumps(dictionary, indent=4)

@@ -76,23 +76,37 @@ class Index:
     def dim(self):
         return self.index.d
 
-    def search(self, x: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    def search(self, x: np.ndarray) :
         """
         :param x: 2D array with shape (N, dim)
         :return: tuple(indexes, distances)
         """
-        dists, ids = self.index.search(x, 1)
+        # dists, ids = self.index.search(x, 1)
+        # print("first:",  dists, ids)
+        dists, ids = self.index.search(x, 10)
+        # print("second:", dists, ids)
+        # for i, (dist, ids) in enumerate(zip(dists, ids)):
         ids = np.squeeze(ids)
         dists = np.squeeze(dists)
+
         return ids, dists
+
 
     def get_source(self, idx: int):
         return self.mapping.get_source(idx)
 
-    def get_embeddings_source(self, x: np.ndarray) -> Tuple[List[str], np.ndarray]:
+    def get_embeddings_source(self, x: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """
         :param x: 2D array with shape (N, dim)
         :return: tuple(source_strings, distances)
         """
         indexes, distances = self.search(x)
-        return list(map(lambda i: self.get_source(i), indexes)), distances
+        indexes_with_source = np.empty(indexes.shape, dtype=object)
+        for i in range(len(indexes)):
+            for j in range(len(indexes[i])):
+                source = self.get_source(indexes[i][j])
+                indexes_with_source[i][j] =source
+
+        # result = [[self.get_source(element) for element in sublist] for sublist in indexes]
+        # return list(map(lambda i: list(map(self.get_source, i)), indexes)), distances
+        return indexes_with_source, distances
