@@ -88,7 +88,6 @@ result_chains: List[Chain] = []
 
 def generate_sequences(chain: Chain, last_hidden_state: torch.Tensor, probs: torch.Tensor,
                        start_idx: int, tokens: List[int], token_pos: int):
-
     if start_idx >= len(last_hidden_state) or token_pos >= len(tokens):
         if len(chain) > 1:
             result_chains.append(chain)
@@ -107,10 +106,21 @@ def generate_sequences(chain: Chain, last_hidden_state: torch.Tensor, probs: tor
 
 
 def main(gpt_response) -> tuple[list[int], list[int]]:
+    start_time = time.time()
     index = Index.load(Config.index_file, Config.mapping_file)
-
+    end_time = time.time()
+    execution_time = end_time - start_time
+    print("Время выполнения функции1:", execution_time, "секунд")
+    start_time = time.time()
     embeddings = Embeddings(tokenizer, model).from_text(gpt_response)
+    end_time = time.time()
+    execution_time = end_time - start_time
+    print("Время выполнения функции2:", execution_time, "секунд")
+    start_time = time.time()
     faiss.normalize_L2(embeddings)
+    end_time = time.time()
+    execution_time = end_time - start_time
+    print("Время выполнения функции3:", execution_time, "секунд")
 
     sources, result_dists = index.get_embeddings_source(embeddings)
 
@@ -118,27 +128,38 @@ def main(gpt_response) -> tuple[list[int], list[int]]:
 
     gpt_token_ids = tokenizer.convert_tokens_to_ids(gpt_tokens)
 
-    wiki_dict = dict()
-    for page in Config.page_names:
-        wiki_dict |= Wiki.parse(page)
+    wiki_dict = parse_json_to_dict("./artifacts/scrape_wiki.json")
 
-    start = time.perf_counter()
     for token_pos, (token, token_id, source) in enumerate(zip(gpt_tokens, gpt_token_ids, sources)):
         wiki_text = wiki_dict[source]
         wiki_token_ids = tokenizer.encode(wiki_text, return_tensors='pt').squeeze()
+        print(len(wiki_text))
+        print(len(wiki_token_ids))
 
         for batch in range(0, len(wiki_token_ids), 511):
             wiki_token_ids_batch = wiki_token_ids[batch:batch + 512].unsqueeze(0)
-
+            print("len:::", wiki_token_ids_batch.shape)
             with torch.no_grad():
+                print("wiki_token_ids_batch:", wiki_token_ids_batch)
                 output_page = modelMLM(wiki_token_ids_batch)
+                print("output_page_len:::", len(output_page))
+                print("output_page:", output_page)
 
-            last_hidden_state = output_page[0].squeeze()
-            probs = torch.nn.functional.softmax(last_hidden_state, dim=1)
+            last_hidden_state = output_page[0].squeeze()  #
+            print("last_hidden_state:", last_hidden_state)
+            print("last_hidden_state_len:::", last_hidden_state.shape)
+            if last_hidden_state.dim() == 1:
+                probs = torch.nn.functional.softmax(last_hidden_state, dim=0)
+                probs = probs.unsqueeze(0)
+                last_hidden_state = last_hidden_state.unsqueeze(0)
+            else:
+                probs = torch.nn.functional.softmax(last_hidden_state, dim=1)
+            #     в for на 128 сразу делаем на все отрезки, софтмаксим, склеиваем все в одну большую маторицу probs, также получаем len(last_hidden_state) + gpt_tokens, gpt_token_ids, sources и откидываем на golang дальнейшие вычисления
+            print("probs:", probs)
+            print("probs_len:::", probs.shape)
 
             empty_chain = Chain([], [], source)
             generate_sequences(empty_chain, last_hidden_state, probs, 0, gpt_token_ids, token_pos)
-
 
     filtered_chains: List[Chain] = []
     marked_positions: Set[int] = set()
@@ -148,8 +169,8 @@ def main(gpt_response) -> tuple[list[int], list[int]]:
             marked_positions |= set(chain.positions)
             filtered_chains.append(chain)
 
-
-
+    print("output3")
+    # ---------------------------------------------------------------------------------------------------------------
     # prepare tokens for coloring
     tokens_for_coloring = map(lambda s: s.replace('Ġ', ' ').replace('Ċ', '</br>'), gpt_tokens)
 
@@ -208,32 +229,47 @@ def main(gpt_response) -> tuple[list[int], list[int]]:
     output_source_list += '</br>'
     result_html = template_page.render(result=output_page, gpt_response=gpt_response, list_of_colors=output_source_list)
 
-    # with open("./server/templates/template_of_result_page.html", "w", encoding="utf-8") as f:
-    #     f.write(result_html)
+    with open("./server/templates/template_of_result_page.html", "w", encoding="utf-8") as f:
+        f.write(result_html)
     return sentence_length_array, count_colored_token_in_sentence_array
 
 
+def parse_json_to_dict(json_file_path) -> dict:
+    with open(json_file_path, "r") as json_file:
+        data = json.load(json_file)
+
+    my_dict = {}
+
+    for item in data:
+        key, value = list(item.items())[0]
+        my_dict[key] = value
+
+    return my_dict
+
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--userinput", help="User input value", type=str)
-    parser.add_argument("--file", help="Quiz file", type=str)
-    parser.add_argument("--question", help="Question from quiz", type=str)
-    parser.add_argument("--answer", help="Answer for question", type=str)
-    args = parser.parse_args()
-
-    userinput = args.userinput
-    file = args.file
-    question = args.question
-    answer = args.answer
-    sentence_length_array, count_colored_token_in_sentence_array = main(userinput)
-
-    dictionary = {
-        'file': file,
-        'question': question,
-        'answer': answer,
-        'length': sentence_length_array,
-        'colored': count_colored_token_in_sentence_array
-    }
-
-    json_output = json.dumps(dictionary, indent=4)
-    print(json_output)
+    main(
+        'The discussion of the history of a language is typically divided into "external history", describing the ethnic, political, social, technological, and other changes that affected the languages, and "internal history", describing the phonological and grammatical changes undergone by the language')
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument("--userinput", help="User input value", type=str)
+    # parser.add_argument("--file", help="Quiz file", type=str)
+    # parser.add_argument("--question", help="Question from quiz", type=str)
+    # parser.add_argument("--answer", help="Answer for question", type=str)
+    # args = parser.parse_args()
+    #
+    # userinput = args.userinput
+    # file = args.file
+    # question = args.question
+    # answer = args.answer
+    # sentence_length_array, count_colored_token_in_sentence_array = main(userinput)
+    #
+    # dictionary = {
+    #     'file': file,
+    #     'question': question,
+    #     'answer': answer,
+    #     'length': sentence_length_array,
+    #     'colored': count_colored_token_in_sentence_array
+    # }
+    #
+    # json_output = json.dumps(dictionary, indent=4)
+    # print(json_output)
