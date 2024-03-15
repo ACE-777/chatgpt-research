@@ -136,7 +136,12 @@ page_names: list[str] = [
     "Paleolithic",
     "Mesolithic",
     "Neolithic",
-    "Chalcolithic"
+    "Chalcolithic",
+    "UEFA_Euro_2012_final",
+    "Great_depression_of_British_agriculture",
+    "Vasco_Nunez_de_Balboa",
+    "Bartolomeu_Dias",
+    "Ferdinand_Magellan"
 ]
 
 unrelated_page_names: list[str] = [
@@ -233,3 +238,7 @@ unrelated_page_names: list[str] = [
     "Kyaikmaraw_Township",
     "John_Shahidi"
 ]
+
+
+# 102.32976865768433 секунд
+# 97.34420108795166 секунд
