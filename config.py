@@ -12,7 +12,37 @@ mapping_file: str = "mapping-large.csv"
 index_file: str = "large.index"
 centroid_file: str = "centroid.npy"
 
-# Wiki Articles
+# page_names: list[str] = [
+#     "FIFA_World_Cup",
+#     "Premier_League",
+#     "Premier_League_records_and_statistics",
+#     "UEFA_European_Championship",
+#     "UEFA_Champions_League",
+#     "Socrates",
+#     "Agriculture_in_England",
+#     "UEFA_Euro_2012_final",
+#     "Great_depression_of_British_agriculture",
+#     "Vasco_Nunez_de_Balboa",
+#     "Great_depression_of_British_agriculture",
+#     "Bartolomeu_Dias",
+#     "Ferdinand_Magellan",
+# ]
+#
+# unrelated_page_names: list[str] = [
+#     "Alexander_Patent_Racket_Company",
+#     "Mordella_weiseri",
+#     "Stand-up_comedy",
+#     "FANUC",
+#     "Francis_Augustus_Cox",
+#     "(We_All_Are)_Looking_for_Home",
+#     "Computer_science",
+#     "3D_printing",
+#     "Thermoplastic",
+#     "Goema",
+#     "Gotham_Bowl",
+# ]
+
+Wiki Articles
 page_names: list[str] = [
     "John_F._Kennedy",
     "Winston_Churchill",
@@ -137,11 +167,6 @@ page_names: list[str] = [
     "Mesolithic",
     "Neolithic",
     "Chalcolithic",
-    "UEFA_Euro_2012_final",
-    "Great_depression_of_British_agriculture",
-    "Vasco_Nunez_de_Balboa",
-    "Bartolomeu_Dias",
-    "Ferdinand_Magellan"
 ]
 
 unrelated_page_names: list[str] = [

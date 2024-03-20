@@ -1,5 +1,6 @@
 import copy
 import math
+import selectors
 import time
 import argparse
 import json
@@ -49,11 +50,13 @@ class Chain:
     likelihoods: List[float]
     positions: Optional[List[int]]
     source: str
+    skip: int
 
     def __init__(self,source: str, likelihoods: Optional[List[float]] = None, positions: Optional[int] = None):
         self.likelihoods = [] if (likelihoods is None) else likelihoods
         self.positions = [] if (likelihoods is None) else likelihoods
         self.source = source
+        self.skip = 0
 
     def __len__(self) -> int:
         return len(self.positions)
@@ -72,6 +75,9 @@ class Chain:
         #              self.positions + [position],
         #              self.source)
 
+    def increment_skip(self)->None:
+        self.skip+=1
+
     def get_score(self):
         l = len(self)
 
@@ -85,7 +91,7 @@ class Chain:
 
 
 
-def generate_sequences(source: str, last_hidden_state: int, probs: torch.Tensor, tokens: List[int], token_pos: int)-> List[Chain]:
+def generate_sequences(source: str, last_hidden_state: int, probs: torch.Tensor, tokens: List[int], token_pos: int, withskip: str)-> List[Chain]:
     chains_per_token: List[Chain] = []
 
     for first_idx in range(0, last_hidden_state):
@@ -104,18 +110,16 @@ def generate_sequences(source: str, last_hidden_state: int, probs: torch.Tensor,
                 if len(chain) > 1:
                     chains_per_token.append(copy.deepcopy(chain))
             else:
-                print("prob:",prob)
-                print("len(tokens)", len(tokens))
-                print("token_pos:", token_pos)
-                print("last_hidden_state:", last_hidden_state)
-                print("first_idx", first_idx)
-                print("last_probably_token_in_chain:", last_probably_token_in_chain)
-                break
+                if withskip == "True" and chain.skip < 2:
+                    chain.increment_skip()
+                else:
+                    break
 
     return chains_per_token
 
 
-def main(gpt_response, use_source, sources_from_input) -> tuple[list[str], list[str], list[Chain], Any]:
+def main(gpt_response, use_source, sources_from_input, withskip) -> tuple[
+    list[str], Union[list[Any], list[str]], list[Chain], str, list[Any]]:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     index = Index.load(Config.index_file, Config.mapping_file)
 
@@ -164,12 +168,9 @@ def main(gpt_response, use_source, sources_from_input) -> tuple[list[str], list[
             else:
                 probs = torch.nn.functional.softmax(last_hidden_state, dim=1).to(device)
             result_tensor_per_token = torch.cat((result_tensor_per_token, probs), dim=0).to(device)
-        all_chains_before_sorting += generate_sequences(source, len(result_tensor_per_token), result_tensor_per_token, gpt_token_ids, token_pos)
+        all_chains_before_sorting += generate_sequences(source, len(result_tensor_per_token), result_tensor_per_token, gpt_token_ids, token_pos, withskip)
 
     # end_time = time.time()
-    print("==================")
-    print("unfiltered chains:", all_chains_before_sorting)
-    print("==================")
     filtered_chains: List[Chain] = []
     marked_positions: Set[int] = set()
     for chain in sorted(all_chains_before_sorting, key=lambda x: x.get_score(), reverse=True):
@@ -177,7 +178,6 @@ def main(gpt_response, use_source, sources_from_input) -> tuple[list[str], list[
         if len(marked_in_chain) == 0:
             marked_positions |= set(chain.positions)
             filtered_chains.append(chain)
-    print("filtered_chains::::", filtered_chains)
     tokens_for_coloring = map(lambda s: s.replace('Ġ', ' ').replace('Ċ', '</br>'), gpt_tokens)
     pos2chain: Dict[int, Chain] = {}
     for i, chain in enumerate(filtered_chains):
@@ -235,7 +235,7 @@ def main(gpt_response, use_source, sources_from_input) -> tuple[list[str], list[
     with open("./server/templates/template_of_result_page.html", "w", encoding="utf-8") as f:
         f.write(result_html)
 
-    return gpt_tokens, sources, filtered_chains, result_html
+    return gpt_tokens, sources, filtered_chains, result_html, all_chains_before_sorting
 
 
 
@@ -253,41 +253,50 @@ def parse_json_to_dict(json_file_path) -> dict:
 
 
 if __name__ == "__main__":
-    gpt_tokens, sources, result_chaines_2, result_html = main(
-        "In England and Wales, any new national park is named under the National Parks and Access to the Countryside Act 1949, and its designation is subject to confirmation by the Secretary of State for Environment, Food, and Rural Affairs. National parks were initially established under this Act. The Industrial Revolution in the United Kingdom gave rise to a protracted struggle for public access to the countryside, which culminated in the 1949 Act. James Bryce submitted the first 'freedom to roam' bill in Parliament in 1884, but it wasn't until 1931 that a government investigation suggested establishing a 'National Park Authority' to choose which regions to declare national parks.", "True", "https://en.wikipedia.org/wiki/National_parks_of_the_United_Kingdom#Legal_designation,https://en.wikipedia.org/wiki/National_parks_of_the_United_Kingdom#Legal_designation,https://en.wikipedia.org/wiki/National_parks_of_the_United_Kingdom#Legal_designation,https://en.wikipedia.org/wiki/National_parks_of_the_United_Kingdom#Legal_designation")
-    file="ggg"
-    question="qqqq"
-    answer="aaaa"
-    use_source = False
+    # gpt_tokens, sources, result_chaines_2, result_html = main(
+    #     "National parks were first designated under the National Parks and Access to the Countryside Act 1949, and in England and Wales any new national park is designated under this Act, and must be confirmed by the Secretary of State for Environment, Food and Rural Affairs. The 1949 Act came about after a prolonged campaign for public access to the countryside in the United Kingdom with its roots in the Industrial Revolution. The first 'freedom to roam' bill was introduced to Parliament in 1884 by James Bryce but it was not until 1931 that a government inquiry recommended the creation of a 'National Park Authority' to select areas for designation as national parks.", "", "https://en.wikipedia.org/wiki/National_parks_of_the_United_Kingdom#Legal_designation,https://en.wikipedia.org/wiki/National_parks_of_the_United_Kingdom#Legal_designation,https://en.wikipedia.org/wiki/National_parks_of_the_United_Kingdom#Legal_designation")
+    # file="ggg"
+    # question="qqqq"
+    # answer="aaaa"
+    # use_source = False
 
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument("--userinput", help="User input value", type=str)
-    # parser.add_argument("--file", help="Quiz file", type=str)
-    # parser.add_argument("--question", help="Question from quiz", type=str)
-    # parser.add_argument("--answer", help="Answer for question", type=str)
-    # parser.add_argument("--usesource", help="Use ready sources", type=str)
-    # parser.add_argument("--sources", help="Use ready sources", type=str)
-    # args = parser.parse_args()
-    #
-    # userinput = args.userinput
-    # file = args.file
-    # question = args.question
-    # answer = args.answer
-    # usesource = args.usesource
-    # sources = args.sources
-    # gpt_tokens, sources_res, result_chaines_2, result_html = main(userinput, usesource, sources)
-    #
-    # json_data_chains = json.dumps([chain.__dict__ for chain in result_chaines_2])
-    #
-    # dictionary = {
-    #     'file': file,
-    #     'question': question,
-    #     'answer': answer,
-    #     'tokens': gpt_tokens,
-    #     'result_sources': sources_res,
-    #     'chains': json_data_chains,
-    #     'html': result_html,
-    # }
-    #
-    # json_output = json.dumps(dictionary, indent=4)
-    # print(json_output)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--userinput", help="User input value", type=str)
+    parser.add_argument("--file", help="Quiz file", type=str)
+    parser.add_argument("--question", help="Question from quiz", type=str)
+    parser.add_argument("--answer", help="Answer for question", type=str)
+    parser.add_argument("--usesource", help="Use ready sources", type=str)
+    parser.add_argument("--sources", help="Use ready sources", type=str)
+    parser.add_argument("--withskip", help="Use 3 max skip in chains", type=str)
+    args = parser.parse_args()
+
+    userinput = args.userinput
+    file = args.file
+    question = args.question
+    answer = args.answer
+    usesource = args.usesource
+    sources = args.sources
+    withskip = args.withskip
+    gpt_tokens, sources_res, result_chaines_2, result_html, all_chains_before_sorting = main(userinput, usesource, sources, withskip)
+
+    json_data_chains = json.dumps([chain.__dict__ for chain in result_chaines_2])
+    json_data_chains_2 = json.dumps([chain.__dict__ for chain in all_chains_before_sorting])
+    number_of_colored = 0
+    for i in range(result_chaines_2.__len__()):
+        number_of_colored += len(result_chaines_2[i].positions)
+
+    dictionary = {
+        'file': file,
+        'question': question,
+        'answer': answer,
+        'tokens': gpt_tokens,
+        'result_sources': sources_res,
+        'chains': json_data_chains,
+        'html': result_html,
+        'lentokens': len(gpt_tokens),
+        'coloredtokens': number_of_colored,
+        'allchainsbeforesorting': json_data_chains_2
+    }
+
+    json_output = json.dumps(dictionary, indent=4)
+    print(json_output)
