@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+message MatrixMessage {
+  repeated float row = 1;
+}
+
+message MatrixMessages {
+  repeated MatrixMessage matrix_messages = 1;
+}
