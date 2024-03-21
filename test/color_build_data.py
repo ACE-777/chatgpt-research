@@ -107,12 +107,18 @@ if __name__ == "__main__":
     parser.add_argument("--file", help="Quiz file", type=str)
     parser.add_argument("--question", help="Question from quiz", type=str)
     parser.add_argument("--answer", help="Answer for question", type=str)
+    parser.add_argument("--usesource", help="Use ready sources", type=str)
+    parser.add_argument("--sources", help="Use ready sources", type=str)
+    parser.add_argument("--withskip", help="Use 3 max skip in chains", type=str)
     args = parser.parse_args()
 
     userinput = args.userinput
     file = args.file
     question = args.question
     answer = args.answer
+    usesource = args.usesource
+    sources = args.sources
+    withskip = args.withskip
     result_sources, tokens, result_dists = main(userinput)
     # sentence_length_array, count_colored_token_in_sentence_array, html = main(userinput)
 
