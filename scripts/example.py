@@ -13,7 +13,7 @@ import faiss  # type: ignore
 import wikipediaapi  # type: ignore
 import torch
 from jinja2 import Template
-from src import Roberta, Config, Embeddings, Index
+from src import Roberta, Config, EmbeddingsBuilder, Index
 from transformers import  RobertaForMaskedLM
 
 
@@ -28,7 +28,7 @@ page_template_str = """
 <head>
     <meta charset="UTF-8">
     <title>Result</title>
-    <link rel="stylesheet" type="text/css" href="../cmd/static/style_result.css">
+    <link rel="stylesheet" type="text/css" href="../../internal/metrics/static/style_result.css">
 </head>
 <body>
 <h1>Result of research</h1>
@@ -123,7 +123,7 @@ def main(gpt_response, use_source, sources_from_input, withskip) -> tuple[
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     index = Index.load(Config.index_file, Config.mapping_file)
 
-    embeddings = Embeddings(tokenizer, model).from_text(gpt_response)
+    embeddings = EmbeddingsBuilder(tokenizer, model).from_text(gpt_response)
     faiss.normalize_L2(embeddings)
 
     gpt_tokens = tokenizer.tokenize(gpt_response)  # разбиваем на токены входную строку с гпт
@@ -150,6 +150,8 @@ def main(gpt_response, use_source, sources_from_input, withskip) -> tuple[
     all_chains_before_sorting=[]
     # start_time = time.time()
     for token_pos, (token, token_id, source) in enumerate(zip(gpt_tokens, gpt_token_ids, sources)):
+        # print("source:::", source)
+        source = source[0] # после имплемантации вариативности источников как в первом алгоритме надо убрать это
         wiki_text = wiki_dict[source]
         wiki_token_ids = tokenizer.encode(wiki_text, return_tensors='pt').squeeze()
         result_tensor_per_token = torch.empty(0, 50265).to(device)
@@ -278,7 +280,7 @@ if __name__ == "__main__":
     sources = args.sources
     withskip = args.withskip
     gpt_tokens, sources_res, result_chaines_2, result_html, all_chains_before_sorting = main(userinput, usesource, sources, withskip)
-
+    str_source = sources_res.tolist()
     json_data_chains = json.dumps([chain.__dict__ for chain in result_chaines_2])
     json_data_chains_2 = json.dumps([chain.__dict__ for chain in all_chains_before_sorting])
     number_of_colored = 0
@@ -290,7 +292,7 @@ if __name__ == "__main__":
         'question': question,
         'answer': answer,
         'tokens': gpt_tokens,
-        'result_sources': sources_res,
+        'result_sources': str_source,
         'chains': json_data_chains,
         'html': result_html,
         'lentokens': len(gpt_tokens),
