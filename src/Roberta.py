@@ -9,7 +9,6 @@ class Roberta:
     @staticmethod
     def get_default() -> Tuple[RobertaTokenizer, RobertaModel]:
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        print(f'Device: {device}')
         t = RobertaTokenizer.from_pretrained(Config.model_name)
         m = RobertaModel.from_pretrained(Config.model_name).to(device)
         return t, m

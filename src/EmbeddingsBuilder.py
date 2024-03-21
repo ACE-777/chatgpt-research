@@ -22,16 +22,16 @@ class EmbeddingsBuilder:
         self.max_sequence_length = self.model.config.max_position_embeddings
         self.embedding_length = self.model.config.hidden_size
         self.normalize = normalize
-        print(f"Embedding normalization: {normalize}")
+        # print(f"Embedding normalization: {normalize}")
 
         self.suppress_progress = False
 
         if centroid_file is not None:
             self.centroid = np.load(Config.centroid_file)
-            print('Centroid loaded!')
+            # print('Centroid loaded!')
         else:
             self.centroid = np.zeros(self.embedding_length)
-            print('No centroid')
+            # print('No centroid')
 
     def from_ids(self, input_ids: List[int]) -> np.ndarray:
         """
@@ -46,6 +46,7 @@ class EmbeddingsBuilder:
         embedding_len: int = self.embedding_length
         embeddings: np.ndarray = np.empty((0, embedding_len))
         previous_half: Optional[np.ndarray] = None
+        # previous_half: np.ndarray | None = None
 
         iterable = range(0, len(input_ids), window_step)
         if not self.suppress_progress:
