@@ -19,7 +19,8 @@ class ConfigLoader(type):
             if val is None:
                 envname = name.upper()
                 if envname not in os.environ:
-                    print(f"Environment variable {envname} for config var {name} is not set", file=sys.stderr)
+                    continue
+                    # print(f"Environment variable {envname} for config var {name} is not set", file=sys.stderr)
                 else:
                     val = os.environ[envname]
 

@@ -6,13 +6,13 @@ Description
 import sys
 from typing import Dict
 
-import lucene
+# import lucene
 from search import Searcher
 from src import Config, Roberta, EmbeddingsBuilder, Index
 
 
 def build_index(text: str) -> Index:
-    lucene.getVMEnv().attachCurrentThread()
+    # lucene.getVMEnv().attachCurrentThread()
     with Searcher(Config.source_index_path, 100) as searcher:
         tokens = searcher.split_text(text)
 

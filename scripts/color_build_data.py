@@ -5,10 +5,9 @@ import json
 
 
 from scripts.model_of_GPT import build_page_template
-from scripts.build_index_from_potential_sources import build_index
 from transformers import RobertaTokenizer  # type: ignore
 
-from src import SourceMapping, Config, EmbeddingsBuilder, Embeddings, Index,Roberta
+from src import SourceMapping, Config, EmbeddingsBuilder, Index,Roberta
 from typing import Dict, List, Optional, Tuple, Any
 
 
@@ -96,7 +95,8 @@ def main(user_input: str) -> tuple[Any, list[str], Any]:
         # print("Done")
     else:
         # print("Index is being built from sources ")
-        index = build_index(user_input)
+        index = Index.from_embeddings()
+        # index = build_index(user_input)
 
     # print("Test [Data] Searching quotes from the same page:")
     # print('"Childhood w references"')
