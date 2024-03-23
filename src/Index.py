@@ -1,4 +1,4 @@
-from typing import Union, Tuple, List
+from typing import Union, Tuple, List, Any
 
 import faiss  # type: ignore
 import pandas as pd  # type: ignore
@@ -69,13 +69,13 @@ class Index:
         return Index(index, mapping, threshold)
 
     @staticmethod
-    def from_config_wiki():
+    def from_config_wiki(normalization: bool,centroid_file: Any):
         """
         generates index from online Wikipedia
         Refer to Embeddings.from_wiki()
         :return:
         """
-        embeddings = EmbeddingsBuilder(*Roberta.get_default(), normalize=True)
+        embeddings = EmbeddingsBuilder(*Roberta.get_default(), normalize=normalization, centroid_file=centroid_file)
         return Index.from_embeddings(*embeddings.from_wiki())
 
     def dim(self):
@@ -110,7 +110,7 @@ class Index:
         for i in range(len(indexes)):
             for j in range(len(indexes[i])):
                 source = self.get_source(indexes[i][j])
-                indexes_with_source[i][j] =source
+                indexes_with_source[i][j] = source
 
         # result = [[self.get_source(element) for element in sublist] for sublist in indexes]
         # return list(map(lambda i: list(map(self.get_source, i)), indexes)), distances

@@ -123,8 +123,8 @@ def main(gpt_response, use_source, sources_from_input, withskip) -> tuple[
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     index = Index.load(Config.index_file, Config.mapping_file)
 
-    embeddings = EmbeddingsBuilder(tokenizer, model).from_text(gpt_response)
-    faiss.normalize_L2(embeddings)
+    embeddings = EmbeddingsBuilder(tokenizer, model, normalize=True).from_text(gpt_response)
+    # faiss.normalize_L2(embeddings)
 
     gpt_tokens = tokenizer.tokenize(gpt_response)  # разбиваем на токены входную строку с гпт
 

@@ -2,6 +2,7 @@ import faiss  # type: ignore
 from progress.bar import ChargingBar  # type: ignore
 import torch  # type: ignore
 import numpy as np
+import time
 
 from transformers import RobertaTokenizer, RobertaModel  # type: ignore
 from typing import List, Tuple, Optional, Callable, Dict
@@ -51,7 +52,8 @@ class EmbeddingsBuilder:
         iterable = range(0, len(input_ids), window_step)
         if not self.suppress_progress:
             iterable = ChargingBar('Embeddings').iter(iterable)
-
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        # start_time = time.time()
         for i in iterable:
             # Create tensor with acceptable dimensions:
             input_ids_tensor = torch.tensor(input_ids[i: i + sequence_length]).unsqueeze(0)

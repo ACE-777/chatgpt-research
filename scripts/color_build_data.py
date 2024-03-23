@@ -48,7 +48,7 @@ def build_dict_for_color(links: list[str], uniq_color: int) -> Dict[str, str]:
 
 def prob_test_wiki_with_colored(index: Index, text: str, expected_url: str,
                                 uniq_color: int) -> tuple[Any, list[str], Any]:
-    embeddings = EmbeddingsBuilder(tokenizer, model, normalize=True).from_text(text)
+    embeddings = EmbeddingsBuilder(tokenizer, model, normalize=True, centroid_file=Config.centroid_file).from_text(text)
     tokens = build_list_of_tokens_input(text)
     # may end
     result_sources, result_dists = index.get_embeddings_source(embeddings)
