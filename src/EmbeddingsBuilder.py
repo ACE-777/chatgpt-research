@@ -56,10 +56,10 @@ class EmbeddingsBuilder:
         # start_time = time.time()
         for i in iterable:
             # Create tensor with acceptable dimensions:
-            input_ids_tensor = torch.tensor(input_ids[i: i + sequence_length]).unsqueeze(0)
+            input_ids_tensor = torch.tensor(input_ids[i: i + sequence_length]).unsqueeze(0).to(device)
 
-            # Moves tensor to model's device
-            input_ids_tensor = input_ids_tensor.to(self.model.device)
+            # # Moves tensor to model's device
+            # input_ids_tensor = input_ids_tensor.to(self.model.device)
 
             output = self.model(input_ids_tensor)
             seq_embeddings = output.last_hidden_state.detach().squeeze(0).cpu().numpy().astype(np.float32)
@@ -72,18 +72,28 @@ class EmbeddingsBuilder:
                 embeddings = seq_embeddings[:window_step]
 
             previous_half = seq_embeddings[window_step:]
+        # end_time = time.time()
+        # execution_time = end_time - start_time
 
+        # print("Время выполнения функции:", execution_time, "секунд")
         if previous_half is not None:
             embeddings = np.concatenate([embeddings, previous_half])
 
         count, length = embeddings.shape
         assert count == len(input_ids)
         assert length == embedding_len
+        # print("centroid;;::", self.centroid)
+        # print("centroidshape;;::", self.centroid.shape)
+        # print("embedings11:", embeddings)
+        # print("embedddshape;;::", embeddings.shape)
 
+        # print("centroida:",  self.centroid)
         embeddings -= self.centroid
         if self.normalize:
             faiss.normalize_L2(embeddings)
 
+
+        # print("embedings22:", embeddings)
         return embeddings
 
     def from_text(self, text: str) -> np.ndarray:

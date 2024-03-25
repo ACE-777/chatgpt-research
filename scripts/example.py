@@ -150,7 +150,10 @@ def main(gpt_response, use_source, sources_from_input, withskip) -> tuple[
     all_chains_before_sorting=[]
     # start_time = time.time()
     for token_pos, (token, token_id, source) in enumerate(zip(gpt_tokens, gpt_token_ids, sources)):
+        # mainSource =  copy.deepcopy(source)
         # print("source:::", source)
+        # for i in range(0,3): # for many source variants per each token
+        #     source = mainSource[i]
         source = source[0] # после имплемантации вариативности источников как в первом алгоритме надо убрать это
         wiki_text = wiki_dict[source]
         wiki_token_ids = tokenizer.encode(wiki_text, return_tensors='pt').squeeze()
