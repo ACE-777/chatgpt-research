@@ -239,16 +239,19 @@ source_index_path = None  # None field will be loaded from environment
 
 page_names: list[str] = [
     "FIFA_World_Cup",
+    "History_of_the_Italy_national_football_team",
+    "History_of_the_Spain_national_football_team",
     "Premier_League",
     "Premier_League_records_and_statistics",
     "UEFA_European_Championship",
     "UEFA_Champions_League",
     "Socrates",
     "Agriculture_in_England",
+    "Causes_of_the_Great_Depression",
     "UEFA_Euro_2012_final",
     "Great_depression_of_British_agriculture",
     "Vasco_Nunez_de_Balboa",
-    "Great_depression_of_British_agriculture",
+    "David_Silva",
     "Bartolomeu_Dias",
     "Ferdinand_Magellan",
 ]
@@ -265,6 +268,7 @@ unrelated_page_names: list[str] = [
     "Thermoplastic",
     "Goema",
     "Gotham_Bowl",
+    "Teenage_Mutant_Ninja_Turtles",
 ]
 
 

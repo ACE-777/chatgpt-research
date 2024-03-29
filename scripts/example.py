@@ -75,6 +75,10 @@ class Chain:
         #              self.positions + [position],
         #              self.source)
 
+    def insert_in_begin(self, likelihood: float, position: int) -> None:
+        self.likelihoods.append(likelihood)
+        self.positions.insert(0, position)
+
     def increment_skip(self)->None:
         self.skip+=1
 
@@ -112,6 +116,30 @@ def generate_sequences(source: str, last_hidden_state: int, probs: torch.Tensor,
             else:
                 if withskip == "True" and chain.skip < 2:
                     chain.increment_skip()
+                    chain.extend(prob, src_of_token)
+                else:
+                    break
+
+    # then go to left, after went to right. Use be-directional property of MLM
+    for last_first_idx in range(0, last_hidden_state):
+        chain = Chain(source)
+        last_probably_token_in_chain = min(last_first_idx, token_pos)
+
+        for last_second_idx in range(0, last_probably_token_in_chain):
+            token = last_first_idx - last_second_idx
+            src_of_token = token_pos - last_second_idx
+
+            token_curr = tokens[src_of_token]
+            prob = probs[token][token_curr].item()
+
+            if prob > 0.05:
+                chain.insert_in_begin(prob, src_of_token)
+                if len(chain) > 1:
+                    chains_per_token.append(copy.deepcopy(chain))
+            else:
+                if withskip == "True" and chain.skip < 2:
+                    chain.increment_skip()
+                    chain.insert_in_begin(prob, src_of_token)
                 else:
                     break
 
@@ -134,16 +162,14 @@ def main(gpt_response, use_source, sources_from_input, withskip) -> tuple[
         iteration_of_sentence=0
         sources=[]
         for token in range(0, len(gpt_tokens)):
-            if token == len(gpt_tokens):
+            if token == len(gpt_tokens)-1:
                 break
 
-            if gpt_tokens[token] == "'.'":
+            if gpt_tokens[token] == ".":
                 iteration_of_sentence+=1
-
             sources.append(sources_from_input[iteration_of_sentence])
     else:
         sources, result_dists = index.get_embeddings_source(embeddings)
-
     gpt_token_ids = tokenizer.convert_tokens_to_ids(gpt_tokens)
 
     wiki_dict = parse_json_to_dict("./artifacts/scrape_wiki.json")
