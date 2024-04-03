@@ -144,5 +144,5 @@ class EmbeddingsBuilder:
 
             page_embeddings = self.from_ids(input_ids)
             embeddings = np.concatenate([embeddings, page_embeddings])
-
+        print("embeddings:", embeddings)
         return embeddings, src_map

@@ -90,7 +90,10 @@ class Chain:
             score *= lh
 
         score **= 1 / l
-        score *= math.log2(2 + l)
+        # first formula
+        # score *= math.log2(2 + l)
+        # second formula
+        score *= l
         return score
 
 
@@ -147,7 +150,7 @@ def generate_sequences(source: str, last_hidden_state: int, probs: torch.Tensor,
 
 
 def main(gpt_response, use_source, sources_from_input, withskip) -> tuple[
-    list[str], Union[list[Any], list[str]], list[Chain], str, list[Any]]:
+    list[str], Union[list[Any], list[str]], list[Chain], str, list[Any], list[Any], list[int], list[int]]:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     index = Index.load(Config.index_file, Config.mapping_file)
 
@@ -155,12 +158,13 @@ def main(gpt_response, use_source, sources_from_input, withskip) -> tuple[
     # faiss.normalize_L2(embeddings)
 
     gpt_tokens = tokenizer.tokenize(gpt_response)  # разбиваем на токены входную строку с гпт
-
+    # print("source:", gpt_response)
     if use_source == "True":
         sources_from_input = [link.strip() for link in sources_from_input.split(',')]
 
         iteration_of_sentence=0
         sources=[]
+        result_dists=[]
         for token in range(0, len(gpt_tokens)):
             if token == len(gpt_tokens)-1:
                 break
@@ -176,30 +180,52 @@ def main(gpt_response, use_source, sources_from_input, withskip) -> tuple[
     all_chains_before_sorting=[]
     # start_time = time.time()
     for token_pos, (token, token_id, source) in enumerate(zip(gpt_tokens, gpt_token_ids, sources)):
-        # mainSource =  copy.deepcopy(source)
-        # print("source:::", source)
-        # for i in range(0,3): # for many source variants per each token
-        #     source = mainSource[i]
-        source = source[0] # после имплемантации вариативности источников как в первом алгоритме надо убрать это
-        wiki_text = wiki_dict[source]
-        wiki_token_ids = tokenizer.encode(wiki_text, return_tensors='pt').squeeze()
-        result_tensor_per_token = torch.empty(0, 50265).to(device)
+        if  use_source == "True":
+            wiki_text = wiki_dict[source]
+            wiki_token_ids = tokenizer.encode(wiki_text, return_tensors='pt').squeeze()
+            result_tensor_per_token = torch.empty(0, 50265).to(device)
 
-        for batch in range(0, len(wiki_token_ids), 512):
-            wiki_token_ids_batch = wiki_token_ids[batch:batch + 512].unsqueeze(0).to(device)
-            with torch.no_grad():
-                modelMLM.to(device)
-                output_page = modelMLM(wiki_token_ids_batch)
+            for batch in range(0, len(wiki_token_ids), 512):
+                wiki_token_ids_batch = wiki_token_ids[batch:batch + 512].unsqueeze(0).to(device)
+                with torch.no_grad():
+                    modelMLM.to(device)
+                    output_page = modelMLM(wiki_token_ids_batch)
 
-            last_hidden_state = output_page[0].squeeze()
-            if last_hidden_state.dim() == 1:
-                probs = torch.nn.functional.softmax(last_hidden_state, dim=0).to(device)
-                probs = probs.unsqueeze(0).to(device)
-                last_hidden_state = last_hidden_state.unsqueeze(0)
-            else:
-                probs = torch.nn.functional.softmax(last_hidden_state, dim=1).to(device)
-            result_tensor_per_token = torch.cat((result_tensor_per_token, probs), dim=0).to(device)
-        all_chains_before_sorting += generate_sequences(source, len(result_tensor_per_token), result_tensor_per_token, gpt_token_ids, token_pos, withskip)
+                last_hidden_state = output_page[0].squeeze()
+                if last_hidden_state.dim() == 1:
+                    probs = torch.nn.functional.softmax(last_hidden_state, dim=0).to(device)
+                    probs = probs.unsqueeze(0).to(device)
+                    last_hidden_state = last_hidden_state.unsqueeze(0)
+                else:
+                    probs = torch.nn.functional.softmax(last_hidden_state, dim=1).to(device)
+                result_tensor_per_token = torch.cat((result_tensor_per_token, probs), dim=0).to(device)
+            all_chains_before_sorting += generate_sequences(source, len(result_tensor_per_token),
+                                                            result_tensor_per_token, gpt_token_ids, token_pos, withskip)
+        else:
+            mainSource = copy.deepcopy(source)
+            for i in range(0, 10): # for many source variants per each token
+                source = mainSource[i]
+                # source = source[0] # после имплемантации вариативности источников как в первом алгоритме надо убрать это
+                wiki_text = wiki_dict[source]
+                wiki_token_ids = tokenizer.encode(wiki_text, return_tensors='pt').squeeze()
+                result_tensor_per_token = torch.empty(0, 50265).to(device)
+
+                for batch in range(0, len(wiki_token_ids), 512):
+                    wiki_token_ids_batch = wiki_token_ids[batch:batch + 512].unsqueeze(0).to(device)
+                    with torch.no_grad():
+                        modelMLM.to(device)
+                        output_page = modelMLM(wiki_token_ids_batch)
+
+                    last_hidden_state = output_page[0].squeeze()
+                    if last_hidden_state.dim() == 1:
+                        probs = torch.nn.functional.softmax(last_hidden_state, dim=0).to(device)
+                        probs = probs.unsqueeze(0).to(device)
+                        last_hidden_state = last_hidden_state.unsqueeze(0)
+                    else:
+                        probs = torch.nn.functional.softmax(last_hidden_state, dim=1).to(device)
+                    result_tensor_per_token = torch.cat((result_tensor_per_token, probs), dim=0).to(device)
+                all_chains_before_sorting += generate_sequences(source, len(result_tensor_per_token),
+                                                            result_tensor_per_token, gpt_token_ids, token_pos, withskip)
 
     # end_time = time.time()
     filtered_chains: List[Chain] = []
@@ -266,7 +292,8 @@ def main(gpt_response, use_source, sources_from_input, withskip) -> tuple[
     with open("./server/templates/template_of_result_page.html", "w", encoding="utf-8") as f:
         f.write(result_html)
 
-    return gpt_tokens, sources, filtered_chains, result_html, all_chains_before_sorting
+    return gpt_tokens, sources, filtered_chains, result_html, all_chains_before_sorting, result_dists, \
+           sentence_length_array, count_colored_token_in_sentence_array
 
 
 
@@ -305,11 +332,22 @@ if __name__ == "__main__":
     file = args.file
     question = args.question
     answer = args.answer
-    usesource = args.usesource
+    use_source = args.usesource
     sources = args.sources
     withskip = args.withskip
-    gpt_tokens, sources_res, result_chaines_2, result_html, all_chains_before_sorting = main(userinput, usesource, sources, withskip)
-    str_source = sources_res.tolist()
+
+    gpt_tokens, sources_res, result_chaines_2, result_html, all_chains_before_sorting, result_dists, \
+    sentence_length_array, count_colored_token_in_sentence_array = main(userinput, use_source, sources, withskip)
+
+    float_list=[]
+    if use_source == "True":
+        str_source = sources_res
+    else:
+        str_source = sources_res.tolist()
+        float_list = result_dists.tolist()
+
+    sentence_length_list = sentence_length_array
+    count_colored_token_in_sentence_list = count_colored_token_in_sentence_array
     json_data_chains = json.dumps([chain.__dict__ for chain in result_chaines_2])
     json_data_chains_2 = json.dumps([chain.__dict__ for chain in all_chains_before_sorting])
     number_of_colored = 0
@@ -326,7 +364,10 @@ if __name__ == "__main__":
         'html': result_html,
         'lentokens': len(gpt_tokens),
         'coloredtokens': number_of_colored,
-        'allchainsbeforesorting': json_data_chains_2
+        'result_dists': float_list,
+        'allchainsbeforesorting': json_data_chains_2,
+        'length': sentence_length_list,
+        'colored':count_colored_token_in_sentence_list
     }
 
     json_output = json.dumps(dictionary, indent=4)
