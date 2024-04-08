@@ -140,7 +140,7 @@ def generate_sequences(source: str, last_hidden_state: int, probs: torch.Tensor,
                 if len(chain) > 1:
                     chains_per_token.append(copy.deepcopy(chain))
             else:
-                if withskip == "True" and chain.skip < 2:
+                if withskip == "True" and chain.skip < 3:
                     chain.increment_skip()
                     chain.insert_in_begin(prob, src_of_token)
                 else:
