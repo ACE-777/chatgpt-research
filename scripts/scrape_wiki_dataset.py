@@ -5,6 +5,11 @@ import json
 if __name__ == "__main__":
     wiki_dict = dict()
     for page in Config.page_names:
+        print("page_names:", page,"/",len(Config.page_names))
+        wiki_dict |= Wiki.parse(page)
+
+    for page in Config.unrelated_page_names:
+        print("unrelated_page_names:", page,"/",len(Config.unrelated_page_names))
         wiki_dict |= Wiki.parse(page)
     #     --------------------------------------------------------
     keys = list(wiki_dict.keys())

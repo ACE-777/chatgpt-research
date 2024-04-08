@@ -91,9 +91,9 @@ class Chain:
 
         score **= 1 / l
         # first formula
-        # score *= math.log2(2 + l)
+        score *= math.log2(2 + l)
         # second formula
-        score *= l
+        # score *= l
         return score
 
 
@@ -117,7 +117,7 @@ def generate_sequences(source: str, last_hidden_state: int, probs: torch.Tensor,
                 if len(chain) > 1:
                     chains_per_token.append(copy.deepcopy(chain))
             else:
-                if withskip == "True" and chain.skip < 2:
+                if withskip == "True" and chain.skip < 3:
                     chain.increment_skip()
                     chain.extend(prob, src_of_token)
                 else:
@@ -206,6 +206,9 @@ def main(gpt_response, use_source, sources_from_input, withskip) -> tuple[
             for i in range(0, 10): # for many source variants per each token
                 source = mainSource[i]
                 # source = source[0] # после имплемантации вариативности источников как в первом алгоритме надо убрать это
+                # wiki_text = wiki_dict[source]
+                if source not in wiki_dict:
+                    continue
                 wiki_text = wiki_dict[source]
                 wiki_token_ids = tokenizer.encode(wiki_text, return_tensors='pt').squeeze()
                 result_tensor_per_token = torch.empty(0, 50265).to(device)
