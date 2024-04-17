@@ -259,7 +259,7 @@ def main(gpt_response, use_source, sources_from_input, withskip) -> tuple[
     last_chain: Optional[Chain] = None
     for i, key in enumerate(tokens_for_coloring):
         key: str
-        if key == '.':
+        if key.endswith('.'):
             sentence_length_array.append(sentence_length)
             count_colored_token_in_sentence_array.append(count_colored_token_in_sentence)
             sentence_length = 0
