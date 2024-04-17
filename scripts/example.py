@@ -259,7 +259,7 @@ def main(gpt_response, use_source, sources_from_input, withskip) -> tuple[
     last_chain: Optional[Chain] = None
     for i, key in enumerate(tokens_for_coloring):
         key: str
-        if key.endswith('.'):
+        if key.endswith('.') or key == '.':
             sentence_length_array.append(sentence_length)
             count_colored_token_in_sentence_array.append(count_colored_token_in_sentence)
             sentence_length = 0
@@ -319,7 +319,10 @@ if __name__ == "__main__":
     # file="ggg"
     # question="qqqq"
     # answer="aaaa"
-    # use_source = False
+    # use_source = "False"
+    # sources=""
+    # withskip = "True"
+    # main("The correct answer is a) 2-0. In the Euro 2012 final, Spain defeated Italy with a score of 4-0. Spain dominated the match with goals from David Silva and Jordi Alba, securing their victory and becoming the first team to win three consecutive major international tournaments (Euro 2008, World Cup 2010, Euro 2012). The scoreline of 2-0 was not the final result in this match.", use_source, sources, withskip)
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--userinput", help="User input value", type=str)
