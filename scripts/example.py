@@ -28,16 +28,31 @@ page_template_str = """
 <head>
     <meta charset="UTF-8">
     <title>Result</title>
-    <link rel="stylesheet" type="text/css" href="../../internal/metrics/static/style_result.css">
+ 	<meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta http-equiv="x-ua-compatible" content="crhome=1">
+    <link rel="stylesheet" type="text/css" href="../../internal/metrics/static/style_result_updated.css">
 </head>
 <body>
-<h1>Result of research</h1>
-<pre><b>Input text:</b></pre>
-{{ gpt_response }}
-<pre><b>Top paragraphs:</b></pre>
-{{ list_of_colors }}
-<pre><b>Result:</b></pre>
-{{ result }}
+<div class="container">
+ 	<div class="item">
+		<h1>Result of research</h1>
+	</div>
+	<div class="item">
+		<pre><b>Input text:</b></pre>
+		{{ gpt_response }}
+	</div>
+	<div class="item">
+		<pre><b>Top paragraphs:</b></pre>
+		{{ list_of_colors }}
+	</div>
+	<div class="item">
+		<pre><b>Result:</b></pre>
+		{{ result }}
+	</div>
+	<div class="item">
+		<pre><b>Colored percentage: {{ coloredCount }}</b></pre>
+	</div>
+</div>
 </body>
 </html>
 """
