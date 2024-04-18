@@ -33,6 +33,7 @@ page_template_str = """
     <link rel="stylesheet" type="text/css" href="../../internal/metrics/static/style_result_updated.css">
 </head>
 <body>
+<div class="topper"></div>
 <div class="container">
  	<div class="item">
 		<h1>Result of research</h1>
@@ -50,7 +51,7 @@ page_template_str = """
 		{{ result }}
 	</div>
 	<div class="item">
-		<pre><b>Colored percentage: {{ coloredCount }}</b></pre>
+		<pre><b>Colored percentage: coloredCount </b></pre>
 	</div>
 </div>
 </body>
@@ -264,7 +265,7 @@ def main(gpt_response, use_source, sources_from_input, withskip) -> tuple[
     template_text = Template(source_text_template_str)
     template_source_item = Template(source_item_str)
 
-    color: int = 7
+    color: int = 1
     output_page: str = ''
     sentence_length: int = 0
     count_colored_token_in_sentence: int = 0
