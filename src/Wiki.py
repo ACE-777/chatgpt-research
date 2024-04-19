@@ -26,7 +26,7 @@ class Wiki:
         target_page = wikipedia.page(title)
         url = target_page.canonicalurl
         d: Dict[str, str] = dict()
-        d[url] = target_page.summary
+        d[url+"#"] = target_page.summary
 
         for section in target_page.sections:
             d.update(Wiki.traverse_sections(section, url))

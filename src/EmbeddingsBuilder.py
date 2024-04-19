@@ -54,6 +54,10 @@ class EmbeddingsBuilder:
             iterable = ChargingBar('Embeddings').iter(iterable)
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         # start_time = time.time()
+        """
+        going with sliding window throw whole text.
+        for example if sequence_length is 512 and window step is 256 we will start from [0;512]->[256;768]->[512;1024]..
+        """
         for i in iterable:
             # Create tensor with acceptable dimensions:
             input_ids_tensor = torch.tensor(input_ids[i: i + sequence_length]).unsqueeze(0).to(device)
