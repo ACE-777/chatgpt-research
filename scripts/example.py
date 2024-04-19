@@ -1,12 +1,14 @@
 import copy
 import math
+from urllib.parse import quote
+import os
 import selectors
 import time
 import argparse
 import json
 from typing import List, Set, Any, Union, Tuple, Optional, Dict
 
-import work # type: ignore
+import work  # type: ignore
 
 import numpy as np  # type: ignore
 import faiss  # type: ignore
@@ -14,13 +16,9 @@ import wikipediaapi  # type: ignore
 import torch
 from jinja2 import Template
 from src import Roberta, Config, EmbeddingsBuilder, Index
-from transformers import  RobertaForMaskedLM
-
+from transformers import RobertaForMaskedLM
 
 tokenizer, model = Roberta.get_default()
-modelMLM = RobertaForMaskedLM.from_pretrained('roberta-large')
-batched_token_ids = torch.empty((1, 512), dtype=torch.int)
-
 
 page_template_str = """
 <!DOCTYPE html>
@@ -58,21 +56,32 @@ page_template_str = """
 </html>
 """
 
-source_link_template_str = "<a href=\"{{ link }}\" class=\"{{ color }}\" title=\"score: {{score}}\">{{ token }}</a>\n"
+source_link_template_str = "<a href='{{ link }}\' class=\"{{ color }}\" title=\"score: {{score}} ;skip: {{skip}}\">{{ token }}</a>\n"
 source_text_template_str = "<a class=\"{{ color }}\"><i>{{ token }}</i></a>\n"
-source_item_str = "<a href=\"{{ link }}\" class=\"{{ color }}\">{{ link }}</a></br>\n"
+source_item_str = "<a href='{{ link }}' class=\"{{ color }}\">{{ link }}</a></br>\n"
+
 
 class Chain:
     likelihoods: List[float]
     positions: Optional[List[int]]
     source: str
+    source_with_direction_to_text: str
+    buffer_source_with_direction_text: str
     skip: int
+    buffer_positions: List[int]
+    buffer_likelihoods: List[float]
+    flagSkip: False
 
-    def __init__(self,source: str, likelihoods: Optional[List[float]] = None, positions: Optional[int] = None):
+    def __init__(self, source: str, likelihoods: Optional[List[float]] = None, positions: Optional[int] = None):
         self.likelihoods = [] if (likelihoods is None) else likelihoods
         self.positions = [] if (likelihoods is None) else likelihoods
         self.source = source
+        self.source_with_direction_to_text = quote(source, safe=':/')
+        self.buffer_source_with_direction_text = ""
         self.skip = 0
+        self.buffer_positions = []
+        self.buffer_likelihoods = []
+        self.flagSkip = False
 
     def __len__(self) -> int:
         return len(self.positions)
@@ -87,38 +96,134 @@ class Chain:
     def extend(self, likelihood: float, position: int) -> None:
         self.likelihoods.append(likelihood)
         self.positions.append(position)
-        # return Chain(self.likelihoods + [likelihood],
-        #              self.positions + [position],
-        #              self.source)
 
     def insert_in_begin(self, likelihood: float, position: int) -> None:
         self.likelihoods.append(likelihood)
         self.positions.insert(0, position)
 
-    def increment_skip(self)->None:
-        self.skip+=1
+    def save_for_probable_insert(self, likelihood: float, position: int) -> None:
+        self.buffer_positions.append(position)
+        self.buffer_likelihoods.append(likelihood)
+
+    def insert_buffer_in_begin(self):
+        for i in range(len(self.buffer_positions)):
+            self.insert_in_begin(self.buffer_likelihoods[i], self.buffer_positions[i])
+
+        self.buffer_likelihoods = []
+        self.buffer_positions = []
+        self.flagSkip = False
+
+    def insert_buffer_in_extend(self):
+        for i in range(len(self.buffer_positions)):
+            self.extend(self.buffer_likelihoods[i], self.buffer_positions[i])
+
+        self.buffer_likelihoods = []
+        self.buffer_positions = []
+        self.flagSkip = False
+
+    def increment_skip(self) -> None:
+        self.skip += 1
 
     def get_score(self):
         l = len(self)
 
         score = 1.0
-        for lh in self.likelihoods:
-            score *= lh
+        for likelihood in self.likelihoods:
+            score *= likelihood
 
         score **= 1 / l
+
         # first formula
         score *= math.log2(2 + l)
+
         # second formula
         # score *= l
+
+        # third formula
+        # score = score*(2**l)
+
+        # fourth formula
+        # score = score*(2*l)
+
+        # fourth fifth
+        # score = score*(l*(1/2))
+
+        # fourth eight
+        # score = score*((1.5)**l)
+
         return score
 
+    def add_direction_to_text_header(self):
+        self.source_with_direction_to_text = self.source_with_direction_to_text + ":~:text="
+
+    def add_direction_to_text_header_begin(self):
+        self.source_with_direction_to_text = self.source_with_direction_to_text + self.buffer_source_with_direction_text
+
+    def clear_direction_to_text_header_begin(self, source):
+        self.source_with_direction_to_text = source
+
+    def add_direction_of_token_to_text_in_extend(self, wiki_tokens: list[str], token: int):
+        if len(wiki_tokens) != token:
+            list_of_token = [wiki_tokens[token]]
+            self.source_with_direction_to_text = self.source_with_direction_to_text + \
+                                                 quote(tokenizer.convert_tokens_to_string(list_of_token))  ## %20
+
+    def add_special_symbol_in_begin_for_direction_to_text_extend(self, wiki_tokens: list[str], token: int):
+        if token > 1:
+            list_of_token = [wiki_tokens[token - 1]]
+            self.source_with_direction_to_text = self.source_with_direction_to_text + \
+                                                 tokenizer.convert_tokens_to_string(list_of_token) + "-,"
+
+    def add_special_symbol_in_end_for_direction_to_text_extend(self, wiki_tokens: list[str], token: int):
+        if token < len(wiki_tokens) - 1:
+            list_of_token = [wiki_tokens[token + 1]]
+            if "%20" in quote(tokenizer.convert_tokens_to_string(list_of_token)):
+                self.source_with_direction_to_text = self.source_with_direction_to_text + ",-" + \
+                                                     quote(tokenizer.convert_tokens_to_string(list_of_token)).split(
+                                                         "%20")[1]
+            else:
+                self.source_with_direction_to_text = self.source_with_direction_to_text + ",-" + \
+                                                     quote(tokenizer.convert_tokens_to_string(list_of_token))
+
+    def clear_special_symbol_in_end_for_direction_to_text_extend(self):
+        if ",-" in self.source_with_direction_to_text:
+            self.source_with_direction_to_text = self.source_with_direction_to_text.split(",-")[0]
+
+    def add_direction_of_token_to_text_in_begin(self, wiki_tokens: list[str], token: int):
+        if len(wiki_tokens) != token:
+            list_of_token = [wiki_tokens[token]]
+            self.buffer_source_with_direction_text = \
+                quote(tokenizer.convert_tokens_to_string(list_of_token)) + self.buffer_source_with_direction_text
+
+    def add_special_symbol_in_begin_for_direction_to_text_begin(self, wiki_tokens: list[str], token: int):
+        if 1 < token:
+            list_of_token = [wiki_tokens[token - 1]]
+            self.buffer_source_with_direction_text = tokenizer.convert_tokens_to_string(list_of_token) + "-," + \
+                                                     self.buffer_source_with_direction_text
+
+    def add_special_symbol_in_end_for_direction_to_text_begin(self, wiki_tokens: list[str], token: int):
+        if token < len(wiki_tokens) - 1:
+            list_of_token = [wiki_tokens[token + 1]]
+            if "%20" in quote(tokenizer.convert_tokens_to_string(list_of_token)):
+                self.buffer_source_with_direction_text = self.buffer_source_with_direction_text + ",-" + \
+                                                         quote(tokenizer.convert_tokens_to_string(list_of_token)).split(
+                                                             "%20")[1]
+            else:
+                self.buffer_source_with_direction_text = self.buffer_source_with_direction_text + ",-" + \
+                                                         quote(tokenizer.convert_tokens_to_string(list_of_token))
+
+    def clear_special_symbol_in_begin_for_direction_to_text_begin(self):
+        if "-," in self.buffer_source_with_direction_text:
+            self.buffer_source_with_direction_text = self.buffer_source_with_direction_text.split("-,")[1]
 
 
-def generate_sequences(source: str, last_hidden_state: int, probs: torch.Tensor, tokens: List[int], token_pos: int, withskip: str)-> List[Chain]:
+def generate_sequences(source: str, last_hidden_state: int, probs: torch.Tensor, tokens: List[int], token_pos: int,
+                       withskip: str, wiki_tokens: List[str]) -> List[Chain]:
     chains_per_token: List[Chain] = []
 
     for first_idx in range(0, last_hidden_state):
         chain = Chain(source)
+        chain.add_direction_to_text_header()
         last_probably_token_in_chain = min(last_hidden_state - first_idx, len(tokens) - token_pos)
 
         for second_idx in range(0, last_probably_token_in_chain):
@@ -129,12 +234,25 @@ def generate_sequences(source: str, last_hidden_state: int, probs: torch.Tensor,
             prob = probs[token][token_curr].item()
 
             if prob >= 0.05:
+                if chain.flagSkip is True:
+                    chain.insert_buffer_in_extend()
+
                 chain.extend(prob, src_of_token)
                 if len(chain) > 1:
+                    chain.add_direction_of_token_to_text_in_extend(wiki_tokens, token)
+                    chain.add_special_symbol_in_end_for_direction_to_text_extend(wiki_tokens, token)
+
                     chains_per_token.append(copy.deepcopy(chain))
+                    chain.clear_special_symbol_in_end_for_direction_to_text_extend()
+
+                else:
+                    chain.add_special_symbol_in_begin_for_direction_to_text_extend(wiki_tokens, token)
+                    chain.add_direction_of_token_to_text_in_extend(wiki_tokens, token)
             else:
                 if withskip == "True" and chain.skip < 3:
+                    chain.flagSkip = True
                     chain.increment_skip()
+                    chain.save_for_probable_insert(prob, src_of_token)
                     chain.extend(prob, src_of_token)
                 else:
                     break
@@ -142,6 +260,7 @@ def generate_sequences(source: str, last_hidden_state: int, probs: torch.Tensor,
     # then go to left, after went to right. Use be-directional property of MLM
     for last_first_idx in range(0, last_hidden_state):
         chain = Chain(source)
+        chain.add_direction_to_text_header()
         last_probably_token_in_chain = min(last_first_idx, token_pos)
 
         for last_second_idx in range(0, last_probably_token_in_chain):
@@ -151,15 +270,33 @@ def generate_sequences(source: str, last_hidden_state: int, probs: torch.Tensor,
             token_curr = tokens[src_of_token]
             prob = probs[token][token_curr].item()
 
-            if prob > 0.05:
+            if prob >= 0.05:
+                if chain.flagSkip is True:
+                    chain.insert_buffer_in_begin()
+
                 chain.insert_in_begin(prob, src_of_token)
                 if len(chain) > 1:
+                    chain.add_direction_of_token_to_text_in_begin(wiki_tokens, token)
+                    chain.add_special_symbol_in_begin_for_direction_to_text_begin(wiki_tokens, token)
+
+                    chain.add_direction_to_text_header_begin()
                     chains_per_token.append(copy.deepcopy(chain))
+
+                    chain.clear_special_symbol_in_begin_for_direction_to_text_begin()
+                    chain.clear_direction_to_text_header_begin(source)
+                    chain.add_direction_to_text_header()
+                else:
+                    chain.add_special_symbol_in_end_for_direction_to_text_begin(wiki_tokens, token)
+                    chain.add_direction_of_token_to_text_in_begin(wiki_tokens, token)
+
             else:
                 if withskip == "True" and chain.skip < 3:
+                    chain.flagSkip = True
                     chain.increment_skip()
-                    chain.insert_in_begin(prob, src_of_token)
+                    chain.save_for_probable_insert(prob, src_of_token)
+
                 else:
+
                     break
 
     return chains_per_token
@@ -167,6 +304,7 @@ def generate_sequences(source: str, last_hidden_state: int, probs: torch.Tensor,
 
 def main(gpt_response, use_source, sources_from_input, withskip) -> tuple[
     list[str], Union[list[Any], list[str]], list[Chain], str, list[Any], list[Any], list[int], list[int]]:
+    modelMLM = RobertaForMaskedLM.from_pretrained('roberta-large')
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     index = Index.load(Config.index_file, Config.mapping_file)
 
@@ -174,31 +312,32 @@ def main(gpt_response, use_source, sources_from_input, withskip) -> tuple[
     # faiss.normalize_L2(embeddings)
 
     gpt_tokens = tokenizer.tokenize(gpt_response)  # разбиваем на токены входную строку с гпт
-    # print("source:", gpt_response)
     if use_source == "True":
         sources_from_input = [link.strip() for link in sources_from_input.split(',')]
 
-        iteration_of_sentence=0
-        sources=[]
-        result_dists=[]
+        iteration_of_sentence = 0
+        sources = []
+        result_dists = []
         for token in range(0, len(gpt_tokens)):
-            if token == len(gpt_tokens)-1:
+            if token == len(gpt_tokens) - 1:
                 break
 
-            if gpt_tokens[token] == ".":
-                iteration_of_sentence+=1
             sources.append(sources_from_input[iteration_of_sentence])
+            if gpt_tokens[token].endswith('.') or gpt_tokens[token] == '."':
+                iteration_of_sentence += 1
+
     else:
         sources, result_dists = index.get_embeddings_source(embeddings)
     gpt_token_ids = tokenizer.convert_tokens_to_ids(gpt_tokens)
 
     wiki_dict = parse_json_to_dict("./artifacts/scrape_wiki.json")
-    all_chains_before_sorting=[]
+    all_chains_before_sorting = []
     # start_time = time.time()
     for token_pos, (token, token_id, source) in enumerate(zip(gpt_tokens, gpt_token_ids, sources)):
-        if  use_source == "True":
+        if use_source == "True":
             wiki_text = wiki_dict[source]
             wiki_token_ids = tokenizer.encode(wiki_text, return_tensors='pt').squeeze()
+            wiki_tokens = tokenizer.tokenize(wiki_text)
             result_tensor_per_token = torch.empty(0, 50265).to(device)
 
             for batch in range(0, len(wiki_token_ids), 512):
@@ -216,17 +355,19 @@ def main(gpt_response, use_source, sources_from_input, withskip) -> tuple[
                     probs = torch.nn.functional.softmax(last_hidden_state, dim=1).to(device)
                 result_tensor_per_token = torch.cat((result_tensor_per_token, probs), dim=0).to(device)
             all_chains_before_sorting += generate_sequences(source, len(result_tensor_per_token),
-                                                            result_tensor_per_token, gpt_token_ids, token_pos, withskip)
+                                                            result_tensor_per_token, gpt_token_ids, token_pos, withskip,
+                                                            wiki_tokens)
         else:
             mainSource = copy.deepcopy(source)
-            for i in range(0, 10): # for many source variants per each token
+            for i in range(0, 5):  # for many source variants per each token
                 source = mainSource[i]
                 # source = source[0] # после имплемантации вариативности источников как в первом алгоритме надо убрать это
-                # wiki_text = wiki_dict[source]
                 if source not in wiki_dict:
                     continue
+
                 wiki_text = wiki_dict[source]
                 wiki_token_ids = tokenizer.encode(wiki_text, return_tensors='pt').squeeze()
+                wiki_tokens = tokenizer.tokenize(wiki_text)
                 result_tensor_per_token = torch.empty(0, 50265).to(device)
 
                 for batch in range(0, len(wiki_token_ids), 512):
@@ -244,7 +385,8 @@ def main(gpt_response, use_source, sources_from_input, withskip) -> tuple[
                         probs = torch.nn.functional.softmax(last_hidden_state, dim=1).to(device)
                     result_tensor_per_token = torch.cat((result_tensor_per_token, probs), dim=0).to(device)
                 all_chains_before_sorting += generate_sequences(source, len(result_tensor_per_token),
-                                                            result_tensor_per_token, gpt_token_ids, token_pos, withskip)
+                                                                result_tensor_per_token, gpt_token_ids, token_pos,
+                                                                withskip, wiki_tokens)
 
     # end_time = time.time()
     filtered_chains: List[Chain] = []
@@ -284,12 +426,15 @@ def main(gpt_response, use_source, sources_from_input, withskip) -> tuple[
         sentence_length += 1
         if i in pos2chain:
             chain = pos2chain[i]
+            source_with_direction_to_text = chain.source_with_direction_to_text
             source = chain.source
             score = chain.get_score()
+            skip = chain.skip
             if last_chain == chain:
                 count_colored_token_in_sentence += 1
-                output_page += template_link.render(link=source,
+                output_page += template_link.render(link=source_with_direction_to_text,
                                                     score=score,
+                                                    skip=skip,
                                                     color="color" + str(color),
                                                     token=key)
             else:
@@ -298,8 +443,9 @@ def main(gpt_response, use_source, sources_from_input, withskip) -> tuple[
                 last_chain = chain
                 output_source_list += template_source_item.render(link=source,
                                                                   color="color" + str(color))
-                output_page += template_link.render(link=source,
+                output_page += template_link.render(link=source_with_direction_to_text,
                                                     score=score,
+                                                    skip=skip,
                                                     color="color" + str(color),
                                                     token=key)
         else:
@@ -313,7 +459,6 @@ def main(gpt_response, use_source, sources_from_input, withskip) -> tuple[
 
     return gpt_tokens, sources, filtered_chains, result_html, all_chains_before_sorting, result_dists, \
            sentence_length_array, count_colored_token_in_sentence_array
-
 
 
 def parse_json_to_dict(json_file_path) -> dict:
@@ -335,6 +480,7 @@ if __name__ == "__main__":
     # file="ggg"
     # question="qqqq"
     # answer="aaaa"
+
     # use_source = "False"
     # sources=""
     # withskip = "True"
@@ -361,7 +507,7 @@ if __name__ == "__main__":
     gpt_tokens, sources_res, result_chaines_2, result_html, all_chains_before_sorting, result_dists, \
     sentence_length_array, count_colored_token_in_sentence_array = main(userinput, use_source, sources, withskip)
 
-    float_list=[]
+    float_list = []
     if use_source == "True":
         str_source = sources_res
     else:
@@ -389,7 +535,7 @@ if __name__ == "__main__":
         'result_dists': float_list,
         'allchainsbeforesorting': json_data_chains_2,
         'length': sentence_length_list,
-        'colored':count_colored_token_in_sentence_list
+        'colored': count_colored_token_in_sentence_list
     }
 
     json_output = json.dumps(dictionary, indent=4)
