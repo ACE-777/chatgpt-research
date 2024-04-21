@@ -28,6 +28,9 @@ page_template_str = """
     <title>Result</title>
  	<meta name="viewport" content="width=device-width,initial-scale=1">
     <meta http-equiv="x-ua-compatible" content="crhome=1">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900;1,100;1,300;1,400;1,700;1,900&family=Platypi:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
     <link rel="stylesheet" type="text/css" href="../../internal/metrics/static/style_result_updated.css">
 </head>
 <body>
@@ -37,19 +40,19 @@ page_template_str = """
 		<h1>Result of research</h1>
 	</div>
 	<div class="item">
-		<pre><b>Input text:</b></pre>
+		<h3>Input text</h3>
 		{{ gpt_response }}
 	</div>
 	<div class="item">
-		<pre><b>Top paragraphs:</b></pre>
+		<h3>Top paragraphs</h3>
 		{{ list_of_colors }}
 	</div>
 	<div class="item">
-		<pre><b>Result:</b></pre>
+		<h3>Result</h3>
 		{{ result }}
 	</div>
 	<div class="item">
-		<pre><b>Colored percentage: coloredCount </b></pre>
+		<h3>Colored percentage: coloredCount %</h3>
 	</div>
 </div>
 </body>
@@ -57,8 +60,10 @@ page_template_str = """
 """
 
 source_link_template_str = "<a href='{{ link }}\' class=\"{{ color }}\" title=\"score: {{score}} ;skip: {{skip}}\">{{ token }}</a>\n"
-source_text_template_str = "<a class=\"{{ color }}\"><i>{{ token }}</i></a>\n"
-source_item_str = "<a href='{{ link }}' class=\"{{ color }}\">{{ link }}</a></br>\n"
+source_text_template_str = "<a class=\"{{ color }}\">{{ token }}</a>\n"
+source_item_str = "<div class=\"item_paragraphes\">" \
+                  "<a href='{{ link }}' class=\"{{ color }}\">{{ link }}</a>" \
+                  "</div>\n"
 
 
 class Chain:
@@ -88,7 +93,7 @@ class Chain:
 
     def __str__(self) -> str:
         return (f"Chain {{ pos: {self.positions}, likelihoods: {self.likelihoods}, "
-                f"score: {self.get_score()}, source: {self.source} }}")
+                f"score: {self.get_score()}, source: {self.source}, skip: {self.skip}, buffer_positions: {self.buffer_positions}, buffer_likelihoods: {self.buffer_likelihoods} }}")
 
     def __repr__(self) -> str:
         return str(self)
@@ -117,6 +122,7 @@ class Chain:
         for i in range(len(self.buffer_positions)):
             self.extend(self.buffer_likelihoods[i], self.buffer_positions[i])
 
+        self.skip = 0
         self.buffer_likelihoods = []
         self.buffer_positions = []
         self.flagSkip = False
@@ -131,16 +137,17 @@ class Chain:
         for likelihood in self.likelihoods:
             score *= likelihood
 
-        score **= 1 / l
+        if l != 0:
+            score **= 1 / l
 
         # first formula
-        score *= math.log2(2 + l)
+        # score *= math.log2(2 + l)
 
         # second formula
         # score *= l
 
         # third formula
-        # score = score*(2**l)
+        score *= (2**l)*(10**self.skip)
 
         # fourth formula
         # score = score*(2*l)
@@ -238,6 +245,7 @@ def generate_sequences(source: str, last_hidden_state: int, probs: torch.Tensor,
                     chain.insert_buffer_in_extend()
 
                 chain.extend(prob, src_of_token)
+
                 if len(chain) > 1:
                     chain.add_direction_of_token_to_text_in_extend(wiki_tokens, token)
                     chain.add_special_symbol_in_end_for_direction_to_text_extend(wiki_tokens, token)
@@ -253,7 +261,6 @@ def generate_sequences(source: str, last_hidden_state: int, probs: torch.Tensor,
                     chain.flagSkip = True
                     chain.increment_skip()
                     chain.save_for_probable_insert(prob, src_of_token)
-                    chain.extend(prob, src_of_token)
                 else:
                     break
 
@@ -397,6 +404,7 @@ def main(gpt_response, use_source, sources_from_input, withskip) -> tuple[
             marked_positions |= set(chain.positions)
             filtered_chains.append(chain)
     tokens_for_coloring = map(lambda s: s.replace('Ġ', ' ').replace('Ċ', '</br>'), gpt_tokens)
+
     pos2chain: Dict[int, Chain] = {}
     for i, chain in enumerate(filtered_chains):
         for pos in chain.positions:
@@ -452,7 +460,6 @@ def main(gpt_response, use_source, sources_from_input, withskip) -> tuple[
             last_chain = None
             output_page += template_text.render(token=key, color="color0")
 
-    output_source_list += '</br>'
     result_html = template_page.render(result=output_page, gpt_response=gpt_response, list_of_colors=output_source_list)
     with open("./server/templates/template_of_result_page.html", "w", encoding="utf-8") as f:
         f.write(result_html)
@@ -484,7 +491,8 @@ if __name__ == "__main__":
     # use_source = "False"
     # sources=""
     # withskip = "True"
-    # main("The correct answer is a) 2-0. In the Euro 2012 final, Spain defeated Italy with a score of 4-0. Spain dominated the match with goals from David Silva and Jordi Alba, securing their victory and becoming the first team to win three consecutive major international tournaments (Euro 2008, World Cup 2010, Euro 2012). The scoreline of 2-0 was not the final result in this match.", use_source, sources, withskip)
+    # # main(". Bakeries, ice cream makers, and other commercial users received rations of about 70% of normal usage.", use_source, sources, withskip) ##false positives
+    # main("Chelsea beat Blackburn 8-0 to secure the 2009-10 Premier League title on the final day of the season", use_source, sources, withskip)
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--userinput", help="User input value", type=str)
