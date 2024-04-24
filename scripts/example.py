@@ -59,7 +59,9 @@ page_template_str = """
 </html>
 """
 
-source_link_template_str = "<a href='{{ link }}\' class=\"{{ color }}\" title=\"score: {{score}} ;skip: {{skip}}\">{{ token }}</a>\n"
+source_link_template_str = "<a href='{{ link }}\' class=\"{{ color }}\" title=\"score: {{score}} ;skip: {{skip}}; " \
+                           "iteration_of_skipping: {{count_of_skipping}}\">{{ token }}</a>\n"
+
 source_text_template_str = "<a class=\"{{ color }}\">{{ token }}</a>\n"
 source_item_str = "<div class=\"item_paragraphes\">" \
                   "<a href='{{ link }}' class=\"{{ color }}\">{{ link }}</a>" \
@@ -73,6 +75,7 @@ class Chain:
     source_with_direction_to_text: str
     buffer_source_with_direction_text: str
     skip: int
+    count_of_skipping: int
     buffer_positions: List[int]
     buffer_likelihoods: List[float]
     flagSkip: False
@@ -84,6 +87,7 @@ class Chain:
         self.source_with_direction_to_text = quote(source, safe=':/')
         self.buffer_source_with_direction_text = ""
         self.skip = 0
+        self.count_of_skipping = 0
         self.buffer_positions = []
         self.buffer_likelihoods = []
         self.flagSkip = False
@@ -93,7 +97,9 @@ class Chain:
 
     def __str__(self) -> str:
         return (f"Chain {{ pos: {self.positions}, likelihoods: {self.likelihoods}, "
-                f"score: {self.get_score()}, source: {self.source}, skip: {self.skip}, buffer_positions: {self.buffer_positions}, buffer_likelihoods: {self.buffer_likelihoods} }}")
+                f"score: {self.get_score()}, source: {self.source}, skip: {self.skip}, "
+                f"iteration_of_skipping: {self.count_of_skipping}, buffer_positions: {self.buffer_positions}, "
+                f"buffer_likelihoods: {self.buffer_likelihoods} }}")
 
     def __repr__(self) -> str:
         return str(self)
@@ -114,6 +120,8 @@ class Chain:
         for i in range(len(self.buffer_positions)):
             self.insert_in_begin(self.buffer_likelihoods[i], self.buffer_positions[i])
 
+        self.skip = 0
+        self.count_of_skipping += 1
         self.buffer_likelihoods = []
         self.buffer_positions = []
         self.flagSkip = False
@@ -123,6 +131,7 @@ class Chain:
             self.extend(self.buffer_likelihoods[i], self.buffer_positions[i])
 
         self.skip = 0
+        self.count_of_skipping += 1
         self.buffer_likelihoods = []
         self.buffer_positions = []
         self.flagSkip = False
@@ -147,7 +156,7 @@ class Chain:
         # score *= l
 
         # third formula
-        score *= (2**l)*(10**self.skip)
+        score *= (2 ** l) * (10 ** (self.skip + 3*self.count_of_skipping))
 
         # fourth formula
         # score = score*(2*l)
@@ -282,6 +291,7 @@ def generate_sequences(source: str, last_hidden_state: int, probs: torch.Tensor,
                     chain.insert_buffer_in_begin()
 
                 chain.insert_in_begin(prob, src_of_token)
+
                 if len(chain) > 1:
                     chain.add_direction_of_token_to_text_in_begin(wiki_tokens, token)
                     chain.add_special_symbol_in_begin_for_direction_to_text_begin(wiki_tokens, token)
@@ -438,11 +448,13 @@ def main(gpt_response, use_source, sources_from_input, withskip) -> tuple[
             source = chain.source
             score = chain.get_score()
             skip = chain.skip
+            count_of_skipping = chain.count_of_skipping
             if last_chain == chain:
                 count_colored_token_in_sentence += 1
                 output_page += template_link.render(link=source_with_direction_to_text,
                                                     score=score,
                                                     skip=skip,
+                                                    count_of_skipping=count_of_skipping,
                                                     color="color" + str(color),
                                                     token=key)
             else:
@@ -454,6 +466,7 @@ def main(gpt_response, use_source, sources_from_input, withskip) -> tuple[
                 output_page += template_link.render(link=source_with_direction_to_text,
                                                     score=score,
                                                     skip=skip,
+                                                    count_of_skipping=count_of_skipping,
                                                     color="color" + str(color),
                                                     token=key)
         else:
