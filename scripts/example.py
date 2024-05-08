@@ -150,7 +150,7 @@ class Chain:
             score **= 1 / l
 
         # first formula
-        # score *= math.log2(2 + l)
+        score *= math.log2(2 + l)
 
         # second formula
         # score *= l
@@ -236,19 +236,21 @@ class Chain:
 def generate_sequences(source: str, last_hidden_state: int, probs: torch.Tensor, tokens: List[int], token_pos: int,
                        withskip: str, wiki_tokens: List[str]) -> List[Chain]:
     chains_per_token: List[Chain] = []
-
+    # print("========================================================================================")
+    # print("last_hidden_state:",last_hidden_state)
     for first_idx in range(0, last_hidden_state):
         chain = Chain(source)
         chain.add_direction_to_text_header()
         last_probably_token_in_chain = min(last_hidden_state - first_idx, len(tokens) - token_pos)
-
+        # print("last_probably_token_in_chain:", last_probably_token_in_chain)
+        # print("t::", token_pos, "last_probably_token_in_chain:", last_probably_token_in_chain)
         for second_idx in range(0, last_probably_token_in_chain):
             token = first_idx + second_idx
             src_of_token = token_pos + second_idx
 
             token_curr = tokens[src_of_token]
             prob = probs[token][token_curr].item()
-
+            # print("chain:", chain, "token:", token, "src_of_token:", src_of_token)
             if prob >= 0.05:
                 if chain.flagSkip is True:
                     chain.insert_buffer_in_extend()
@@ -257,13 +259,13 @@ def generate_sequences(source: str, last_hidden_state: int, probs: torch.Tensor,
 
                 if len(chain) > 1:
                     chain.add_direction_of_token_to_text_in_extend(wiki_tokens, token)
-                    chain.add_special_symbol_in_end_for_direction_to_text_extend(wiki_tokens, token)
-
+                    # chain.add_special_symbol_in_end_for_direction_to_text_extend(wiki_tokens, token)
+                    # print("chain:", chain)
                     chains_per_token.append(copy.deepcopy(chain))
-                    chain.clear_special_symbol_in_end_for_direction_to_text_extend()
+                    # chain.clear_special_symbol_in_end_for_direction_to_text_extend()
 
                 else:
-                    chain.add_special_symbol_in_begin_for_direction_to_text_extend(wiki_tokens, token)
+                    # chain.add_special_symbol_in_begin_for_direction_to_text_extend(wiki_tokens, token)
                     chain.add_direction_of_token_to_text_in_extend(wiki_tokens, token)
             else:
                 if withskip == "True" and chain.skip < 3:
@@ -278,7 +280,7 @@ def generate_sequences(source: str, last_hidden_state: int, probs: torch.Tensor,
         chain = Chain(source)
         chain.add_direction_to_text_header()
         last_probably_token_in_chain = min(last_first_idx, token_pos)
-
+        # print("t::", token_pos, "last_probably_token_in_chain:", last_probably_token_in_chain)
         for last_second_idx in range(0, last_probably_token_in_chain):
             token = last_first_idx - last_second_idx
             src_of_token = token_pos - last_second_idx
@@ -294,16 +296,16 @@ def generate_sequences(source: str, last_hidden_state: int, probs: torch.Tensor,
 
                 if len(chain) > 1:
                     chain.add_direction_of_token_to_text_in_begin(wiki_tokens, token)
-                    chain.add_special_symbol_in_begin_for_direction_to_text_begin(wiki_tokens, token)
-
+                    # chain.add_special_symbol_in_begin_for_direction_to_text_begin(wiki_tokens, token)
+                    # print("chain:", chain)
                     chain.add_direction_to_text_header_begin()
                     chains_per_token.append(copy.deepcopy(chain))
 
-                    chain.clear_special_symbol_in_begin_for_direction_to_text_begin()
+                    # chain.clear_special_symbol_in_begin_for_direction_to_text_begin()
                     chain.clear_direction_to_text_header_begin(source)
                     chain.add_direction_to_text_header()
                 else:
-                    chain.add_special_symbol_in_end_for_direction_to_text_begin(wiki_tokens, token)
+                    # chain.add_special_symbol_in_end_for_direction_to_text_begin(wiki_tokens, token)
                     chain.add_direction_of_token_to_text_in_begin(wiki_tokens, token)
 
             else:
@@ -408,6 +410,10 @@ def main(gpt_response, use_source, sources_from_input, withskip) -> tuple[
     # end_time = time.time()
     filtered_chains: List[Chain] = []
     marked_positions: Set[int] = set()
+    # print(all_chains_before_sorting)
+    # file = open("otus.txt", "w")
+    # file.write(str(all_chains_before_sorting))
+    # file.close()
     for chain in sorted(all_chains_before_sorting, key=lambda x: x.get_score(), reverse=True):
         marked_in_chain = marked_positions.intersection(chain.positions)
         if len(marked_in_chain) == 0:

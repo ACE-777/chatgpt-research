@@ -241,6 +241,7 @@ page_names: list[str] = [
     "FIFA_World_Cup",
     "History_of_the_Italy_national_football_team",
     "History_of_the_Spain_national_football_team",
+    "Spain_national_football_team",
     "Premier_League",
     "Premier_League_records_and_statistics",
     "UEFA_European_Championship",
@@ -254,6 +255,7 @@ page_names: list[str] = [
     "David_Silva",
     "Bartolomeu_Dias",
     "Ferdinand_Magellan",
+    "Rationing_in_the_United_States",
 ]
 
 unrelated_page_names: list[str] = [
@@ -399,7 +401,7 @@ unrelated_page_names: list[str] = [
 #     "Neolithic",
 #     "Chalcolithic",
 # ]
-#
+# #
 # unrelated_page_names: list[str] = [
 #     "Alexander_Patent_Racket_Company",
 #     "Mordella_weiseri",

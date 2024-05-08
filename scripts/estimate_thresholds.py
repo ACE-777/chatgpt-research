@@ -26,22 +26,24 @@ def estimate_thresholds(index: Index,
         embeddings = embedding_builder.from_text(text)
         sources, dists = index.get_embeddings_source(embeddings)
         for dist, found_src in zip(dists, sources):
-            if real_src == found_src:
-                positives.append(dist)
+            if real_src == found_src[0]:
+                positives.append(dist[0])
             else:
-                negatives.append(dist)
+                negatives.append(dist[0])
 
     pos_mean = statistics.mean(positives)
     neg_mean = statistics.mean(negatives)
 
     if Config.show_plot:
-        plt.hist(positives, bins=50, alpha=0.5, label='Positives')
-        plt.hist(negatives, bins=50, alpha=0.5, label='Negatives')
-        plt.axvline(pos_mean, color='blue', label=f'Positive Mean = {pos_mean:.4f}')
-        plt.axvline(neg_mean, color='red', label=f'Negative Mean = {neg_mean:.4f}')
+        plt.figure(figsize=(10, 6))
+        plt.hist(positives, bins=50, alpha=0.5, label='Положительные совпадения')
+        plt.hist(negatives, bins=50, alpha=0.5, label='Отрицательные совпадения')
+        plt.axvline(pos_mean, color='blue', label=f'Среднее положительное совпадение = {pos_mean:.4f}')
+        plt.axvline(neg_mean, color='red', label=f'Среднее отрицательное совпадение = {neg_mean:.4f}')
         plt.legend()
-        plt.xlabel('Cos Distance')
-        plt.ylabel('Count')
+        plt.xlabel('Косинусное расстояние')
+        plt.ylabel('Количество векторов')
+        plt.title('Распределение значений косинусных расстояний с учетом центроиды')
         plt.show()
 
     return pos_mean, neg_mean
