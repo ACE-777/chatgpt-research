@@ -20,39 +20,6 @@ mamba activate gpt-gpu
 
 Or the same commands using `conda`.
 
-## PyLucene
-To run `build_index_from_potential_sources` script you need [PyLucene](https://lucene.apache.org/pylucene/) installed in the environment.
-To do it you need to build PyLucene.
-
-### Linux / WSL
-
-Requirements:
- * **setuptools**: `mamba install setuptools`
- * (_optional, recommended_) **Temurin JDK 17**: [Instruction](https://adoptium.net/installation/linux/)
-
-Build:\
-_Instruction is close to [this one](https://lucene.apache.org/pylucene/install.html), but changed a little_
-* Download [PyLucene 9.6.0](https://dlcdn.apache.org/lucene/pylucene/pylucene-9.6.0-src.tar.gz)
-  * Unpack and `cd` into unpacked `pylucene-9.6.0` directory
-* Activate mamba/conda environment:
-  ```shell
-  mamba activate gpt-gpu
-  ```
-* Build JCC:
-  * If you didn't install **Temurin JDK 17**, set environment variable `JCC_JDK` to Java's home directory (one that contains `bin` dir)
-  * ```shell
-    pushd jcc
-    python setup.py build
-    python setup.py install  # without sudo
-    popd
-    ```
-* Edit `Makefile` to match your system. You'll need to uncomment one section and edit paths. More detailed instructions are inside the file.
-  * Specify path to python **of active environmen**t, not to system python
-  * You can get the path by calling `whereis python` when environment is active
-* Build: `make`
-* Run tests: `make test`, should be no errors
-* Install: `make install` (**without sudo**). 
-
 ## config.py
 
 ### Used variables
