@@ -105,7 +105,7 @@ python -m scripts <script-name> [scipt-args...]
 
 and their vague description...
 
- * `build_index` - builds embedding index from wiki articles
+ * `build_index_from_wiki` - builds embedding index from wiki articles
  * `collect_pop_quiz` - surveys ChatGPT for answers on quiz
    * Quiz name should be supplied as first parameter `python -m scripts collect_pop_quiz test_quiz`
    * See details in top comment in the file
@@ -114,48 +114,9 @@ and their vague description...
  * `estimate_thresholds` - collects data on related and unrelated topics and estimates threshold
  * `filter_answers` - filters correct answers provided by ChatGPT
    * See details in top comment in the file
- * `format_questions` - Formats quiz _\[ Deprecated \]_
- * `model_of_GPT` - ??? Ask Misha
- * `print_answers` - Prints incorrect answers given by ChatGPT _\[ Deprecated \]_
+ * `auc` - script for get roc-auc graph
+ * `algorithm_1` - algorithm without chains
+ * `algorithm_2` - algorith with chains
+ * `scrape_wiki_dataset` - scrape data from wiki pages 
  * `survey`
    * See details in top comment in the file
-
-
- ## Architecture
- ### Architecture in general
-![arch](https://github.com/BurnBirdX7/chatgpt-research/assets/55112338/068cca63-25e1-45f2-b0d0-0b3a87449ff3)
- ### Sequence diagram
-![ARCH_GPT](https://github.com/BurnBirdX7/chatgpt-research/assets/55112338/a2f35b2e-b925-4837-9cf2-0c23c4b8aa11)
-
-
-## Buisness domain and subdomains
-Business Domain: сервис/инструмент позволяющий получить первоначальные
-источники информации, которая включена в ответ gpt. Абсолютно новый подход
-в данной сфере. Например по полученным ссылкам можно судить насколько
-правдив ответ gpt, насколько мы можем ему доверять. Можем также узнать
-дополнительную информацию из первоначальных источников, которая поможет
-сделать/изменить новый вывод о полученном ответе. Данный инструмент может
-выступать в роли fact checking, также опираясь и анализируя ресурсы, делать
-вывод.
-### Core subdomains:
-- раскраска (это новый разработанный подход для определения источников,
-агрегированию информации и финальному присвоению ссылок на источники).
-### Generic subdomains:
-- инструмент для хранение информации из источников (потому что используем
-готовый open source инструмент);
-- языковая модель (потому что используем готовую open source модель);
-- инструмент для поиска (потому что используем готовый open source
-инструмент);
-- инструмент для полнотекстового поиска (потому что используем готовый open
-source инструмент);
-- сервис аутентификации (потому что используем готовый open source сервис);
-- сервис оплаты (потому что используем готовый open source сервис).
-### Supporting subdomains:
-- web-ui интерфейс (так как разработать ui интерфейс не составляет очень
-большого труда).
-
-## Context map
-  ![BC](https://github.com/BurnBirdX7/chatgpt-research/assets/55112338/242c69de-fbbd-4d51-94a6-dcce403b1806)
-
-## Layered architecture 
- ![LA](https://github.com/BurnBirdX7/chatgpt-research/assets/55112338/b248b669-9e7d-4e85-bb82-ae6e01877dbe)
