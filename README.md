@@ -9,13 +9,13 @@ or [mamba](https://mamba.readthedocs.io/en/latest/installation.html).
 CPU Environment:
 ```shell
 mamba env create --file env-cpu.yml
-mamba activate gpt-cpu
+mamba activate gpt-gpu-39
 ```
 
 GPU Environment:
 ```shell
 mamba env create --file env-gpu.yml
-mamba activate gpt-gpu
+mamba activate gpt-gpu-39
 ```
 
 Or the same commands using `conda`.
