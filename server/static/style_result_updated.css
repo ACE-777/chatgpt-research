@@ -19,7 +19,6 @@ h3 {
 }
 
 body {
-
     height:fit-content;
     font-family: "Lato", sans-serif;
     font-weight: 500;
@@ -30,37 +29,55 @@ body {
     align-items: center;
 }
 
-.container{
+.container {
     display: flex;
     flex-direction: column;
-    height:fit-content;
     justify-content: center;
     align-items: center;
+    padding: 10px;
 }
 
 .item {
     margin: 10px;
-    order: 1;
     padding: 10px;
     border-radius:  15px;
     box-shadow: rgba(50, 50, 93, 0.25) 0 30px 60px -12px inset, rgba(0, 0, 0, 0.3) 0 18px 36px -18px inset;
     font-size: 16px;
-    width: 1200px;
+    max-width: 100%;
 }
 
 .item_paragraphes {
     margin: 3px;
-    order: 1;
     padding: 5px;
     border-radius:  15px;
     box-shadow: rgba(50, 50, 93, 0.25) 0 30px 60px -12px inset, rgba(0, 0, 0, 0.2) 0 18px 36px -18px inset;
     font-size: 16px;
+    max-width: 100%;
     width: fit-content;
+    overflow: hidden;
+    overflow-wrap: break-word;
+}
+
+@media only screen and (max-width: 600px) {
+    .item {
+        width: 90vw;
+    }
+
+    .item_paragraphes {
+        width:80vw;
+    }
+
+    .topper {
+        width: 90vw;
+    }
+
 }
 
 .a.color * {
     text-decoration: underline;
 }
+
+a:hover {color: #ffcc00;}
 
 .head{
     margin-bottom: 10px;

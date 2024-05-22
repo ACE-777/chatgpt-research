@@ -8,6 +8,7 @@ import argparse
 import json
 from typing import List, Set, Any, Union, Tuple, Optional, Dict
 
+
 import work  # type: ignore
 
 import numpy as np  # type: ignore
@@ -150,7 +151,7 @@ class Chain:
             score **= 1 / l
 
         # first formula
-        score *= math.log2(2 + l)
+        # score *= math.log2(2 + l)
 
         # second formula
         # score *= l
@@ -352,7 +353,8 @@ def main(gpt_response, use_source, sources_from_input, withskip) -> tuple[
     wiki_dict = parse_json_to_dict("./artifacts/scrape_wiki.json")
     all_chains_before_sorting = []
     # start_time = time.time()
-    for token_pos, (token, token_id, source) in enumerate(zip(gpt_tokens, gpt_token_ids, sources)):
+
+    for token_pos, (token, token_id, source, result_dist) in enumerate(zip(gpt_tokens, gpt_token_ids, sources, result_dists)):
         if use_source == "True":
             wiki_text = wiki_dict[source]
             wiki_token_ids = tokenizer.encode(wiki_text, return_tensors='pt').squeeze()
@@ -379,6 +381,9 @@ def main(gpt_response, use_source, sources_from_input, withskip) -> tuple[
         else:
             mainSource = copy.deepcopy(source)
             for i in range(0, 5):  # for many source variants per each token
+                if result_dist[i] < Config.threshold:
+                    continue
+
                 source = mainSource[i]
                 # source = source[0] # после имплемантации вариативности источников как в первом алгоритме надо убрать это
                 if source not in wiki_dict:
@@ -511,7 +516,9 @@ if __name__ == "__main__":
     # sources=""
     # withskip = "True"
     # # main(". Bakeries, ice cream makers, and other commercial users received rations of about 70% of normal usage.", use_source, sources, withskip) ##false positives
-    # main("Chelsea beat Blackburn 8-0 to secure the 2009-10 Premier League title on the final day of the season", use_source, sources, withskip)
+    # # main("Chelsea beat Blackburn 8-0 to secure the 2009-10 Premier League title on the final day of the season", use_source, sources, withskip)
+    # main(" C. F. Martin was born in 1796 in Markneukirchen, a small town in Germany historically famous for building musical instruments.", use_source, sources, withskip)
+
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--userinput", help="User input value", type=str)
