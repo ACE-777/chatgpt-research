@@ -4,7 +4,7 @@ import argparse
 import json
 from typing import List, Set, Any, Union, Optional, Dict
 
-
+import math
 import work  # type: ignore
 
 import numpy as np  # type: ignore
@@ -147,13 +147,13 @@ class Chain:
             score **= 1 / l
 
         # first formula
-        # score *= math.log2(2 + l)
+        score *= math.log2(2 + l)
 
         # second formula
         # score *= l
 
         # third formula
-        score *= (2 ** l) * (10 ** (self.skip + 3*self.count_of_skipping))
+        # score *= (2 ** l) * (10 ** (self.skip + 3*self.count_of_skipping))
 
         # fourth formula
         # score = score*(2*l)

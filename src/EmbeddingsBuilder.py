@@ -118,7 +118,7 @@ class EmbeddingsBuilder:
                     - Embeddings as 2d numpy.array
                     - and Interval to Source mapping
         """
-        source_list = Config.page_names
+        source_list = Config.page_names+Config.unrelated_page_names
         return self.from_sources(source_list, Wiki.parse)
 
     def from_sources(self, source_list: List[str], source_provider: Callable[[str], Dict[str, str]])\
