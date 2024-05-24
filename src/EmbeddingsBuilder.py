@@ -121,6 +121,17 @@ class EmbeddingsBuilder:
         source_list = Config.page_names+Config.unrelated_page_names
         return self.from_sources(source_list, Wiki.parse)
 
+    def from_wiki_input(self, articles: list[str]) -> Tuple[np.ndarray, SourceMapping]:
+        """
+        Computes embeddings for online Wikipedia
+        Target pages are specified via config variable `page_names`
+        :return: Tuple:
+                    - Embeddings as 2d numpy.array
+                    - and Interval to Source mapping
+        """
+        source_list = articles
+        return self.from_sources_input(source_list, Wiki.parse)
+
     def from_sources(self, source_list: List[str], source_provider: Callable[[str], Dict[str, str]])\
             -> Tuple[np.ndarray, SourceMapping]:
         """
@@ -149,4 +160,32 @@ class EmbeddingsBuilder:
             page_embeddings = self.from_ids(input_ids)
             embeddings = np.concatenate([embeddings, page_embeddings])
         print("embeddings:", embeddings)
+        return embeddings, src_map
+
+    def from_sources_input(self, source_list: List[str], source_provider: Callable[[str], Dict[str, str]])\
+            -> Tuple[np.ndarray, SourceMapping]:
+        """
+        Computes embeddings for online Wikipedia
+        Target pages are specified via config variable `page_names`
+        :param source_list: Name of the source to be passed to source_provider
+        :param source_provider: Function that accepts source name and
+                                returns dictionary sub_source -> source_text
+        :return: Tuple:
+                    - Embeddings as 2d numpy.array
+                    - and Interval to Source mapping
+        """
+        src_map = SourceMapping()
+        embeddings = np.empty((0, self.model.config.hidden_size))
+
+        for i, page in enumerate(source_list):
+            sources_dict = source_provider(page)
+
+            input_ids: List[int] = []
+            for title, text in sources_dict.items():
+                tokens = self.tokenizer.tokenize(text)
+                input_ids += self.tokenizer.convert_tokens_to_ids(tokens)
+                src_map.append_interval(len(tokens), title)
+
+            page_embeddings = self.from_ids(input_ids)
+            embeddings = np.concatenate([embeddings, page_embeddings])
         return embeddings, src_map

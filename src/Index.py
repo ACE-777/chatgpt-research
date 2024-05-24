@@ -67,6 +67,36 @@ class Index:
         print("Done")
 
         return Index(index, mapping, threshold)
+    @staticmethod
+    def from_embeddings_input(embeddings: Union[np.ndarray, pd.DataFrame],
+                        mapping: SourceMapping,
+                        threshold: float = Config.threshold,
+                        use_gpu: bool = Config.faiss_use_gpu) -> "Index":
+        """
+        Builds index from provided embeddings
+        :param embeddings: data to build the index
+        :param threshold: threshold to divide data
+        :param mapping: index to source mapping
+        :param use_gpu: if set, GPU is used to build the index
+        :return: IndexFlatIP, or GpuIndexFlatIP id use_gpu is True
+        """
+        # C-contiguous order and np.float32 type are required
+        if isinstance(embeddings, np.ndarray) and embeddings.flags['C_CONTIGUOUS']:
+            data = embeddings.astype(np.float32)
+        else:
+            data = np.array(embeddings, order="C", dtype=np.float32)
+
+        sequence_len, embedding_len = data.shape
+
+        faiss.normalize_L2(data)
+        index = faiss.IndexFlatIP(embedding_len)
+        if use_gpu:
+            gpu_res = faiss.StandardGpuResources()
+            index = faiss.index_cpu_to_gpu(gpu_res, 0, index)
+
+        index.add(data)
+
+        return Index(index, mapping, threshold)
 
     @staticmethod
     def from_config_wiki(normalization: bool,centroid_file: Any):
@@ -77,6 +107,16 @@ class Index:
         """
         embeddings = EmbeddingsBuilder(*Roberta.get_default(), normalize=normalization, centroid_file=centroid_file)
         return Index.from_embeddings(*embeddings.from_wiki())
+
+    @staticmethod
+    def from_config_wiki_input(normalization: bool,centroid_file: Any, articles: list[str]):
+        """
+        generates index from online Wikipedia
+        Refer to Embeddings.from_wiki()
+        :return:
+        """
+        embeddings = EmbeddingsBuilder(*Roberta.get_default(), normalize=normalization, centroid_file=centroid_file)
+        return Index.from_embeddings_input(*embeddings.from_wiki_input(articles))
 
     def dim(self):
         return self.index.d
