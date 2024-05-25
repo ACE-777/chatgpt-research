@@ -33,8 +33,8 @@ dependencies:
   - brotlipy=0.7.0=py39ha55989b_1005
   - bzip2=1.0.8=h8ffe710_4
   - c-ares=1.18.1=h8ffe710_0
-  - ca-certificates=2023.08.22=haa95532_0
-  - certifi=2023.11.17=py39haa95532_0
+  - ca-certificates=2024.3.11=haa95532_0
+  - certifi=2024.2.2=py39haa95532_0
   - cffi=1.15.1=py39h68f70e3_3
   - charset-normalizer=2.1.1=pyhd8ed1ab_0
   - click=8.1.3=win_pyhd8ed1ab_2
@@ -219,6 +219,7 @@ dependencies:
   - tzdata=2023c=h71feb2d_0
   - ucrt=10.0.22621.0=h57928b3_0
   - unicodedata2=15.0.0=py39ha55989b_0
+  - unidecode=1.3.8=pyhd8ed1ab_0
   - urllib3=1.26.15=pyhd8ed1ab_0
   - vc=14.3=h3d8a991_11
   - vc14_runtime=14.34.31931=h5081d32_13

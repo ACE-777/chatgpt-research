@@ -3,7 +3,8 @@ from urllib.parse import quote
 import argparse
 import json
 from typing import List, Set, Any, Union, Optional, Dict
-
+import urllib.parse
+from unidecode import unidecode
 
 import work  # type: ignore
 
@@ -32,7 +33,7 @@ page_template_str = """
 </head>
 <body>
 <div class="topper">
-  <a href="/home/" class="back-button"><-</a>
+  <a href="/home/" class="back-button">Back</a>
 </div>
 <div class="container">
 	<div class="item">
@@ -398,7 +399,7 @@ def main(gpt_response, withskip) -> str:
         if i in pos2chain:
             chain = pos2chain[i]
             source_with_direction_to_text = chain.source_with_direction_to_text
-            source = chain.source
+            source = unidecode(urllib.parse.unquote(chain.source.split("https://en.wikipedia.org/wiki/")[1]))
             score = chain.get_score()
             skip = chain.skip
             count_of_skipping = chain.count_of_skipping
