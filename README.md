@@ -84,6 +84,8 @@ and their vague description...
  * `auc` - script for get roc-auc graph
  * `algorithm_1` - algorithm without chains
  * `algorithm_2` - algorith with chains
+ * `algorithm_1_server` - algorithm without chains for server
+ * `algorithm_2_server` - algorithm with chains for server
  * `scrape_wiki_dataset` - scrape data from wiki pages 
  * `survey`
    * See details in top comment in the file
